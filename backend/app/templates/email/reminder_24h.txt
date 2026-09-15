@@ -1,0 +1,11 @@
+Recordatorio de cita — {{ shop_name }}
+
+Hola {{ customer_name }},
+
+Te recordamos que mañana tienes cita:
+- Servicio: {{ service_name }}
+- Barbero: {{ barber_name }}
+- Fecha: {{ date }}
+- Hora: {{ start_time }}
+
+Si no puedes asistir, cancela aquí: {{ cancel_url }}

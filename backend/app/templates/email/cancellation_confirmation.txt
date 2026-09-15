@@ -1,0 +1,7 @@
+Cita cancelada — {{ shop_name }}
+
+Hola {{ customer_name }},
+
+Tu cita del {{ date }} a las {{ start_time }} ({{ service_name }}) ha sido cancelada correctamente.
+
+Esperamos verte pronto.

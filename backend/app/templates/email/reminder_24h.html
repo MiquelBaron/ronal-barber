@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<body style="font-family: sans-serif; color: #111;">
+  <h2>Recordatorio de cita — {{ shop_name }}</h2>
+  <p>Hola {{ customer_name }},</p>
+  <p>Te recordamos que mañana tienes cita:</p>
+  <ul>
+    <li><strong>Servicio:</strong> {{ service_name }}</li>
+    <li><strong>Barbero:</strong> {{ barber_name }}</li>
+    <li><strong>Fecha:</strong> {{ date }}</li>
+    <li><strong>Hora:</strong> {{ start_time }}</li>
+  </ul>
+  <p>Si no puedes asistir, cancela aquí: <a href="{{ cancel_url }}">{{ cancel_url }}</a></p>
+</body>
+</html>

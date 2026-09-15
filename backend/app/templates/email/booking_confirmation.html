@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<body style="font-family: sans-serif; color: #111;">
+  <h2>¡Cita confirmada en {{ shop_name }}!</h2>
+  <p>Hola {{ customer_name }},</p>
+  <p>Tu reserva ha sido confirmada:</p>
+  <ul>
+    <li><strong>Servicio:</strong> {{ service_name }}</li>
+    <li><strong>Barbero:</strong> {{ barber_name }}</li>
+    <li><strong>Fecha:</strong> {{ date }}</li>
+    <li><strong>Hora:</strong> {{ start_time }} - {{ end_time }}</li>
+    <li><strong>Precio:</strong> {{ price }} €</li>
+  </ul>
+  <p>Si necesitas cancelar, puedes hacerlo desde este enlace:</p>
+  <p><a href="{{ cancel_url }}">{{ cancel_url }}</a></p>
+  <p>¡Nos vemos en la silla!</p>
+</body>
+</html>

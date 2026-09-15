@@ -1,0 +1,1 @@
+Place local, licensed photography and brand assets in this directory. Components should receive asset paths through props or configuration so production imagery can replace placeholders without changing layout code.
