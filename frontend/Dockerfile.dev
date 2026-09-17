@@ -1,5 +1,3 @@
-# Backward-compatible alias for development.
-# Prefer: docker compose -f docker-compose.dev.yml up --build
 FROM node:22-alpine
 
 WORKDIR /app

@@ -1,9 +1,12 @@
 import asyncio
+import sys
 from datetime import time
 from decimal import Decimal
 
 from sqlalchemy import select
 
+from app.core.config import get_settings
+from app.core.production import fail_startup, validate_bootstrap_admin_password, validate_production_settings
 from app.core.security import hash_password
 from app.db.migrate import apply_schema_patches
 from app.db.session import SessionLocal, engine
@@ -22,17 +25,18 @@ BARBERS = [
     ("Barbero 2", "Especialista en corte clásico y barba.", "Corte clásico, Barba"),
 ]
 
-BASE_USERS = [
+DEV_USERS = [
     {"email": "admin@ronalbarber.com", "password": "admin", "role": "admin", "barber_index": None},
     {"email": "barber1@ronalbarber.com", "password": "barber1", "role": "admin_barber", "barber_index": 0},
     {"email": "barber2@ronalbarber.com", "password": "barber2", "role": "barber", "barber_index": 1},
 ]
 
 
-async def ensure_base_users(session) -> None:
+async def ensure_dev_users(session) -> None:
+    """Development only: create and reset known test users on every init."""
     barber_rows = list((await session.scalars(select(Barber).order_by(Barber.id))).all())
 
-    for spec in BASE_USERS:
+    for spec in DEV_USERS:
         barber_id = None
         if spec["barber_index"] is not None and spec["barber_index"] < len(barber_rows):
             barber_id = barber_rows[spec["barber_index"]].id
@@ -53,31 +57,86 @@ async def ensure_base_users(session) -> None:
             user.barber_id = barber_id
 
 
+async def bootstrap_production_admin(session) -> None:
+    """Production: create the first admin only when the database has no users."""
+    settings = get_settings()
+    if not settings.is_production:
+        return
+
+    has_users = await session.scalar(select(User.id).limit(1))
+    if has_users is not None:
+        return
+
+    email = settings.bootstrap_admin_email.strip()
+    password = settings.bootstrap_admin_password
+    if not email or not password:
+        fail_startup(
+            "Production database has no users. Set BOOTSTRAP_ADMIN_EMAIL and "
+            "BOOTSTRAP_ADMIN_PASSWORD for first-time setup, then restart."
+        )
+
+    try:
+        validate_bootstrap_admin_password(password)
+    except ValueError as error:
+        fail_startup(str(error))
+
+    session.add(
+        User(
+            email=email,
+            password_hash=hash_password(password),
+            role="admin",
+        )
+    )
+
+
+async def seed_catalog_if_empty(session) -> None:
+    if not (await session.scalar(select(Service.id).limit(1))):
+        session.add_all(
+            [
+                Service(name=name, description=description, price=Decimal(price), duration_minutes=duration)
+                for name, description, price, duration in SERVICES
+            ]
+        )
+    if not (await session.scalar(select(Barber.id).limit(1))):
+        session.add_all(
+            [Barber(name=name, description=description, specialties=specialties) for name, description, specialties in BARBERS]
+        )
+    if not (await session.scalar(select(BusinessHours.id).limit(1))):
+        intervals = []
+        for day in range(6):
+            intervals.append(BusinessHours(day_of_week=day, start_time=time(9), end_time=time(14)))
+            if day < 5:
+                intervals.append(BusinessHours(day_of_week=day, start_time=time(16), end_time=time(20)))
+        session.add_all(intervals)
+
+
 async def init_database() -> None:
+    settings = get_settings()
+
+    try:
+        validate_production_settings(settings)
+    except ValueError as error:
+        fail_startup(str(error))
+
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
         await apply_schema_patches(connection)
 
     async with SessionLocal() as session:
-        if not (await session.scalar(select(Service.id).limit(1))):
-            session.add_all(
-                [Service(name=name, description=description, price=Decimal(price), duration_minutes=duration) for name, description, price, duration in SERVICES]
-            )
-        if not (await session.scalar(select(Barber.id).limit(1))):
-            session.add_all([Barber(name=name, description=description, specialties=specialties) for name, description, specialties in BARBERS])
-        if not (await session.scalar(select(BusinessHours.id).limit(1))):
-            intervals = []
-            for day in range(6):
-                intervals.append(BusinessHours(day_of_week=day, start_time=time(9), end_time=time(14)))
-                if day < 5:
-                    intervals.append(BusinessHours(day_of_week=day, start_time=time(16), end_time=time(20)))
-            session.add_all(intervals)
+        await seed_catalog_if_empty(session)
         await session.commit()
 
-        await ensure_base_users(session)
+        if settings.is_production:
+            await bootstrap_production_admin(session)
+        else:
+            await ensure_dev_users(session)
+
         await session.commit()
         await ensure_defaults_seeded(session)
 
 
 if __name__ == "__main__":
-    asyncio.run(init_database())
+    try:
+        asyncio.run(init_database())
+    except SystemExit as error:
+        sys.exit(error.code if isinstance(error.code, int) else 1)

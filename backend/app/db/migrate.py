@@ -7,7 +7,7 @@ These patches keep Docker volumes working across model updates.
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-PATCHES: list[str] = [
+COMMON_PATCHES: list[str] = [
     # users
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS barber_id INTEGER UNIQUE REFERENCES barbers(id)",
     # barbers — telegram
@@ -29,9 +29,37 @@ PATCHES: list[str] = [
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
     """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_appointments_barber_start
+    ON appointments (barber_id, date, start_time)
+    WHERE status <> 'cancelled' AND barber_id IS NOT NULL
+    """,
+]
+
+POSTGRES_PATCHES: list[str] = [
+    # appointments — prevent overlapping bookings for the same barber
+    "CREATE EXTENSION IF NOT EXISTS btree_gist",
+    """
+    DO $$ BEGIN
+        ALTER TABLE appointments ADD CONSTRAINT ex_appointments_no_overlap
+        EXCLUDE USING gist (
+            barber_id WITH =,
+            tsrange(
+                (date + start_time)::timestamp,
+                (date + end_time)::timestamp,
+                '[)'
+            ) WITH &&
+        ) WHERE (status <> 'cancelled' AND barber_id IS NOT NULL);
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END $$;
+    """,
 ]
 
 
 async def apply_schema_patches(connection: AsyncConnection) -> None:
-    for patch in PATCHES:
+    patches = list(COMMON_PATCHES)
+    if connection.dialect.name == "postgresql":
+        patches.extend(POSTGRES_PATCHES)
+    for patch in patches:
         await connection.execute(text(patch))

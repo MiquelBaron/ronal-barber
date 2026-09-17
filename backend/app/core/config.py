@@ -1,6 +1,9 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.production import validate_production_settings
 
 
 class Settings(BaseSettings):
@@ -13,6 +16,8 @@ class Settings(BaseSettings):
     admin_email: str = "admin@ronalbarber.com"
     admin_password: str = "admin"
     barber_default_password: str = "barber1"
+    bootstrap_admin_email: str = ""
+    bootstrap_admin_password: str = ""
 
     smtp_host: str = ""
     smtp_port: int = 587
@@ -42,6 +47,11 @@ class Settings(BaseSettings):
     @property
     def telegram_enabled(self) -> bool:
         return bool(self.telegram_bot_token)
+
+    @model_validator(mode="after")
+    def enforce_production_requirements(self) -> "Settings":
+        validate_production_settings(self)
+        return self
 
 
 @lru_cache

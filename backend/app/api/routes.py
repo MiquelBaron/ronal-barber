@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,6 +52,7 @@ from app.services import appointments as appointments_service
 from app.services import booking as booking_service
 from app.services import notifications as notifications_service
 from app.services import telegram as telegram_service
+from app.services import uploads as uploads_service
 from app.telegram.bot import handle_update
 
 router = APIRouter(prefix="/api")
@@ -238,11 +239,48 @@ async def update_barber(barber_id: int, payload: BarberIn, _: User = Depends(req
     return item
 
 
+@router.post("/barbers/{barber_id}/photo", response_model=BarberOut)
+async def upload_barber_photo(
+    barber_id: int,
+    photo: UploadFile = File(...),
+    _: User = Depends(require_shop_manager),
+    db: AsyncSession = Depends(get_db),
+) -> Barber:
+    item = await db.get(Barber, barber_id)
+    if item is None:
+        raise HTTPException(404, "Barber not found")
+    if item.image_url:
+        uploads_service.delete_barber_photo_file(item.image_url)
+    item.image_url = await uploads_service.save_barber_photo(barber_id, photo)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+@router.delete("/barbers/{barber_id}/photo", response_model=BarberOut)
+async def delete_barber_photo(
+    barber_id: int,
+    _: User = Depends(require_shop_manager),
+    db: AsyncSession = Depends(get_db),
+) -> Barber:
+    item = await db.get(Barber, barber_id)
+    if item is None:
+        raise HTTPException(404, "Barber not found")
+    if item.image_url:
+        uploads_service.delete_barber_photo_file(item.image_url)
+        item.image_url = ""
+        await db.commit()
+        await db.refresh(item)
+    return item
+
+
 @router.delete("/barbers/{barber_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_barber(barber_id: int, _: User = Depends(require_shop_manager), db: AsyncSession = Depends(get_db)) -> None:
     item = await db.get(Barber, barber_id)
     if item is None:
         raise HTTPException(404, "Barber not found")
+    if item.image_url:
+        uploads_service.delete_barber_photo_file(item.image_url)
     await db.delete(item)
     await db.commit()
 

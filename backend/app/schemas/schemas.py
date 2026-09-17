@@ -21,12 +21,12 @@ class BarberIn(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     description: str = Field(default="", max_length=2000)
     specialties: str = Field(default="", max_length=1000)
-    image_url: str = Field(default="", max_length=500)
     active: bool = True
 
 
 class BarberOut(BarberIn):
     id: int
+    image_url: str = ""
     model_config = ConfigDict(from_attributes=True)
 
 

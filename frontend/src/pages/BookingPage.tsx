@@ -316,18 +316,11 @@ export function BookingPage() {
                 </label>
               </div>
 
-              <div className="rounded-sm border border-black/10 bg-white/60 p-5">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-black/40">Pago simulado</p>
-                <p className="mt-2 text-xs text-black/45">No se envía ni almacena ningún dato de tarjeta.</p>
-                <input
-                  placeholder="4242 4242 4242 4242"
-                  inputMode="numeric"
-                  className="mt-4 w-full border-b border-black/15 bg-transparent py-2 text-sm outline-none"
-                />
-                <div className="mt-3 grid grid-cols-2 gap-4">
-                  <input placeholder="MM/YY" className="border-b border-black/15 bg-transparent py-2 text-sm outline-none" />
-                  <input placeholder="CVC" className="border-b border-black/15 bg-transparent py-2 text-sm outline-none" />
-                </div>
+              <div className="rounded-sm border border-accent/25 bg-accent/5 px-5 py-4">
+                <p className="text-[10px] uppercase tracking-[0.16em] text-black/45">Pago en el local</p>
+                <p className="mt-2 text-sm leading-6 text-black/60">
+                  El pago se realizará en efectivo o con tarjeta directamente en la barbería el día de tu cita.
+                </p>
               </div>
 
               <label className="flex items-start gap-3 text-sm text-black/60">
@@ -419,9 +412,12 @@ export function BookingPage() {
               {selectedService && (
                 <div className="border-t border-black/10 pt-5">
                   <div className="flex items-end justify-between">
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-black/35">Total</p>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-black/35">Total estimado</p>
                     <p className="font-display text-3xl text-accent">{selectedService.price} €</p>
                   </div>
+                  <p className="mt-3 text-xs leading-5 text-black/45">
+                    Se abonará en efectivo o tarjeta en el local.
+                  </p>
                 </div>
               )}
             </div>

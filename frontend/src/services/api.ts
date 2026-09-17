@@ -31,8 +31,16 @@ export const api = {
   deleteService: (id: number) => request<void>(`/api/services/${id}`, { method: "DELETE" }),
   getBarbers: (includeInactive = false) => request<Barber[]>(`/api/barbers?include_inactive=${includeInactive}`),
   getBarber: (id: number) => request<Barber>(`/api/barbers/${id}`),
-  createBarber: (body: Omit<Barber, "id">) => request<Barber>("/api/barbers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-  updateBarber: (id: number, body: Omit<Barber, "id">) => request<Barber>(`/api/barbers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  createBarber: (body: Pick<Barber, "name" | "description" | "specialties" | "active">) =>
+    request<Barber>("/api/barbers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  updateBarber: (id: number, body: Pick<Barber, "name" | "description" | "specialties" | "active">) =>
+    request<Barber>(`/api/barbers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  uploadBarberPhoto: (id: number, file: File) => {
+    const form = new FormData();
+    form.append("photo", file);
+    return request<Barber>(`/api/barbers/${id}/photo`, { method: "POST", body: form });
+  },
+  deleteBarberPhoto: (id: number) => request<Barber>(`/api/barbers/${id}/photo`, { method: "DELETE" }),
   deleteBarber: (id: number) => request<void>(`/api/barbers/${id}`, { method: "DELETE" }),
   getHours: () => request<BusinessHour[]>("/api/hours"),
   replaceHours: (body: BusinessHour[]) => request<BusinessHour[]>("/api/hours", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),

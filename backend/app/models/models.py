@@ -2,7 +2,7 @@ from datetime import date as DateValue, datetime, time
 from decimal import Decimal
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, Time
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, Time, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -94,7 +94,18 @@ class Appointment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    __table_args__ = (Index("ix_appointments_date_barber", "date", "barber_id"),)
+    __table_args__ = (
+        Index("ix_appointments_date_barber", "date", "barber_id"),
+        Index(
+            "uq_appointments_barber_start",
+            "barber_id",
+            "date",
+            "start_time",
+            unique=True,
+            postgresql_where=text("status <> 'cancelled' AND barber_id IS NOT NULL"),
+            sqlite_where=text("status <> 'cancelled' AND barber_id IS NOT NULL"),
+        ),
+    )
 
 
 class SystemSetting(Base):

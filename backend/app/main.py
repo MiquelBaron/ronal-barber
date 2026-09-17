@@ -3,9 +3,13 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from app.api.routes import router
+from app.core.config import get_settings
+from app.core.production import fail_startup, validate_production_settings
+from app.services.uploads import UPLOAD_ROOT, ensure_upload_dirs
 from app.db.session import SessionLocal
 from app.services.scheduler import apply_scheduler_settings, stop_scheduler
 from app.services.settings_store import ensure_defaults_seeded, get_runtime_settings, refresh_cache
@@ -50,6 +54,12 @@ async def telegram_polling_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        validate_production_settings(get_settings())
+    except ValueError as error:
+        fail_startup(str(error))
+
+    ensure_upload_dirs()
     async with SessionLocal() as db:
         await ensure_defaults_seeded(db)
         await refresh_cache(db)
@@ -69,3 +79,4 @@ app = FastAPI(title=runtime.app_name, version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(DynamicCORSMiddleware)
 app.include_router(router)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_ROOT)), name="uploads")

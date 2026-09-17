@@ -1,12 +1,17 @@
+from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Appointment, AppointmentStatus, Barber, BusinessHours, DayOff, Service
+
+SLOT_INTERVAL_MINUTES = 40
 
 
 def as_datetime(day: date, value: time) -> datetime:
@@ -29,6 +34,97 @@ async def barber_has_day_off(db: AsyncSession, barber_id: int, day: date) -> boo
         )
     )
     return rows.first() is not None
+
+
+@dataclass(frozen=True)
+class AvailabilityContext:
+    business_hours: list[BusinessHours]
+    barbers_off: frozenset[int]
+    appointments_by_barber: dict[int, list[Appointment]]
+
+
+def _slot_is_available_in_memory(
+    service: Service,
+    barber: Barber,
+    day: date,
+    start: time,
+    context: AvailabilityContext,
+) -> bool:
+    if barber.id in context.barbers_off:
+        return False
+
+    end = (as_datetime(day, start) + timedelta(minutes=service.duration_minutes)).time()
+    if not any(start >= row.start_time and end <= row.end_time for row in context.business_hours):
+        return False
+
+    start_dt, end_dt = as_datetime(day, start), as_datetime(day, end)
+    for item in context.appointments_by_barber.get(barber.id, []):
+        if start_dt < as_datetime(day, item.end_time) and end_dt > as_datetime(day, item.start_time):
+            return False
+    return True
+
+
+def _candidate_slot_times(
+    day: date,
+    business_hours: list[BusinessHours],
+    service_duration_minutes: int,
+) -> list[time]:
+    candidates: set[time] = set()
+    for row in business_hours:
+        current = as_datetime(day, row.start_time)
+        limit = as_datetime(day, row.end_time)
+        while current + timedelta(minutes=service_duration_minutes) <= limit:
+            candidates.add(current.time())
+            current += timedelta(minutes=SLOT_INTERVAL_MINUTES)
+    return sorted(candidates)
+
+
+async def _load_availability_context(
+    db: AsyncSession,
+    *,
+    day: date,
+    barbers: list[Barber],
+) -> AvailabilityContext:
+    barber_ids = [barber.id for barber in barbers]
+    weekday = day.weekday()
+
+    business_hours = list(
+        (
+            await db.scalars(
+                select(BusinessHours).where(
+                    BusinessHours.day_of_week == weekday,
+                    BusinessHours.active.is_(True),
+                )
+            )
+        ).all()
+    )
+
+    days_off = await db.scalars(
+        select(DayOff).where(
+            DayOff.barber_id.in_(barber_ids),
+            DayOff.start_date <= day,
+            DayOff.end_date >= day,
+        )
+    )
+    barbers_off = frozenset(row.barber_id for row in days_off)
+
+    appointments = await db.scalars(
+        select(Appointment).where(
+            Appointment.date == day,
+            Appointment.barber_id.in_(barber_ids),
+            Appointment.status.not_in([AppointmentStatus.cancelled.value]),
+        )
+    )
+    appointments_by_barber: dict[int, list[Appointment]] = defaultdict(list)
+    for appointment in appointments:
+        if appointment.barber_id is not None:
+            appointments_by_barber[appointment.barber_id].append(appointment)
+
+    return AvailabilityContext(
+        business_hours=business_hours,
+        barbers_off=barbers_off,
+        appointments_by_barber=dict(appointments_by_barber),
+    )
 
 
 async def slot_is_available(db: AsyncSession, service: Service, barber: Barber, day: date, start: time) -> bool:
@@ -76,35 +172,37 @@ async def get_availability_slots(
     if service is None or not service.active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Service not found or inactive")
 
-    barbers = await active_barbers(db, barber_id)
+    if barber_id is not None:
+        barber = await db.get(Barber, barber_id)
+        if barber is None or not barber.active:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found or inactive")
+        barbers = [barber]
+    else:
+        barbers = await active_barbers(db, None)
+
+    if not barbers:
+        return []
+
+    context = await _load_availability_context(db, day=day, barbers=barbers)
     slots: list[str] = []
-    hours = list(
-        (
-            await db.scalars(
-                select(BusinessHours).where(
-                    BusinessHours.day_of_week == day.weekday(),
-                    BusinessHours.active.is_(True),
-                )
-            )
-        ).all()
-    )
-    for row in hours:
-        current = as_datetime(day, row.start_time)
-        limit = as_datetime(day, row.end_time)
-        while current + timedelta(minutes=service.duration_minutes) <= limit:
-            available_for_barber = False
-            for barber in barbers:
-                if await slot_is_available(db, service, barber, day, current.time()):
-                    available_for_barber = True
-                    break
-            if available_for_barber:
-                slots.append(current.strftime("%H:%M"))
-            current += timedelta(minutes=30)
+    for start in _candidate_slot_times(day, context.business_hours, service.duration_minutes):
+        if any(_slot_is_available_in_memory(service, barber, day, start, context) for barber in barbers):
+            slots.append(start.strftime("%H:%M"))
     return slots
 
 
 def generate_cancel_token() -> str:
     return uuid4().hex
+
+
+async def lock_barbers_for_update(db: AsyncSession, barbers: list[Barber]) -> None:
+    """Serialize concurrent bookings for the same barber(s) within this transaction."""
+    for barber in sorted(barbers, key=lambda row: row.id):
+        locked = await db.scalar(
+            select(Barber).where(Barber.id == barber.id, Barber.active.is_(True)).with_for_update()
+        )
+        if locked is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found or inactive")
 
 
 async def create_appointment(
@@ -131,6 +229,8 @@ async def create_appointment(
     barbers = await active_barbers(db, target_barber_id)
     if not barbers:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found or inactive")
+
+    await lock_barbers_for_update(db, barbers)
 
     selected: Barber | None = None
     for barber in barbers:
@@ -161,8 +261,12 @@ async def create_appointment(
         cancel_token_expires_at=appointment_datetime,
     )
     db.add(item)
-    await db.commit()
-    await db.refresh(item)
+    try:
+        await db.flush()
+        await db.commit()
+    except IntegrityError as error:
+        await db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Appointment slot is no longer available") from error
     return item, service, selected
 
 

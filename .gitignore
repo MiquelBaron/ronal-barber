@@ -2,6 +2,11 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
+
+# Uploads (keep folder structure)
+backend/uploads/barbers/*
+!backend/uploads/barbers/.gitkeep
 
 # Python
 __pycache__/
