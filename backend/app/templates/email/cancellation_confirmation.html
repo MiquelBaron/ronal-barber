@@ -1,9 +1,30 @@
-<!DOCTYPE html>
-<html>
-<body style="font-family: sans-serif; color: #111;">
-  <h2>Cita cancelada — {{ shop_name }}</h2>
-  <p>Hola {{ customer_name }},</p>
-  <p>Tu cita del {{ date }} a las {{ start_time }} ({{ service_name }}) ha sido cancelada correctamente.</p>
-  <p>Esperamos verte pronto.</p>
-</body>
-</html>
+{% extends "layout.html" %}
+
+{% block title %}Cita cancelada — {{ shop_name }}{% endblock %}
+{% block preheader %}Tu cita del {{ date }} a las {{ start_time }} ha sido cancelada correctamente.{% endblock %}
+{% block heading %}Cita cancelada{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 16px;">Hola <strong>{{ customer_name }}</strong>,</p>
+<p style="margin:0 0 8px;">Te confirmamos que tu cita ha sido cancelada correctamente:</p>
+
+{% with details=[
+  ('Servicio', service_name),
+  ('Fecha', date),
+  ('Hora', start_time)
+] %}
+  {% include "_detail_card.html" %}
+{% endwith %}
+
+<p style="margin:24px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:#555555;">
+  Esperamos verte pronto. Cuando quieras, puedes reservar de nuevo desde nuestra web.
+</p>
+{% if public_base_url %}
+<p style="margin:24px 0 0;text-align:center;">
+  <a href="{{ public_base_url }}/reservar"
+     style="display:inline-block;background-color:#0a0a0a;color:#f5f2ea;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;line-height:1;letter-spacing:0.14em;text-transform:uppercase;text-decoration:none;padding:16px 32px;border-radius:2px;">
+    Reservar de nuevo
+  </a>
+</p>
+{% endif %}
+{% endblock %}

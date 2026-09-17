@@ -1,18 +1,29 @@
-<!DOCTYPE html>
-<html>
-<body style="font-family: sans-serif; color: #111;">
-  <h2>¡Cita confirmada en {{ shop_name }}!</h2>
-  <p>Hola {{ customer_name }},</p>
-  <p>Tu reserva ha sido confirmada:</p>
-  <ul>
-    <li><strong>Servicio:</strong> {{ service_name }}</li>
-    <li><strong>Barbero:</strong> {{ barber_name }}</li>
-    <li><strong>Fecha:</strong> {{ date }}</li>
-    <li><strong>Hora:</strong> {{ start_time }} - {{ end_time }}</li>
-    <li><strong>Precio:</strong> {{ price }} €</li>
-  </ul>
-  <p>Si necesitas cancelar, puedes hacerlo desde este enlace:</p>
-  <p><a href="{{ cancel_url }}">{{ cancel_url }}</a></p>
-  <p>¡Nos vemos en la silla!</p>
-</body>
-</html>
+{% extends "layout.html" %}
+
+{% block title %}Confirmación de cita — {{ shop_name }}{% endblock %}
+{% block preheader %}Tu cita en {{ shop_name }} está confirmada para el {{ date }} a las {{ start_time }}.{% endblock %}
+{% block heading %}Cita confirmada{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 16px;">Hola <strong>{{ customer_name }}</strong>,</p>
+<p style="margin:0 0 8px;">Tu reserva ha sido confirmada. Estos son los detalles:</p>
+
+{% with details=[
+  ('Servicio', service_name),
+  ('Barbero', barber_name),
+  ('Fecha', date),
+  ('Hora', start_time ~ ' – ' ~ end_time),
+  ('Precio', price ~ ' €')
+] %}
+  {% include "_detail_card.html" %}
+{% endwith %}
+
+<p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#555555;">
+  El pago se realizará en el local el día de tu cita.
+</p>
+<p style="margin:24px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#111111;">
+  Nos vemos en la silla.
+</p>
+
+{% include "_cancel_button.html" %}
+{% endblock %}

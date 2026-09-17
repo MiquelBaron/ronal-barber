@@ -30,9 +30,9 @@ SETTING_DEFINITIONS: list[dict[str, Any]] = [
     {"key": "telegram_bot_token", "label": "Token del bot Telegram", "group": "telegram", "type": "secret", "description": "Token de @BotFather."},
     {"key": "telegram_bot_username", "label": "Usuario del bot", "group": "telegram", "type": "string", "description": "Sin @. Ej: ronalbarber_bot"},
     {"key": "telegram_webhook_secret", "label": "Secreto webhook Telegram", "group": "telegram", "type": "secret", "description": "Opcional. Si se configura, desactiva long polling."},
-    {"key": "scheduler_enabled", "label": "Scheduler activo", "group": "scheduler", "type": "bool", "description": "Ejecuta jobs en background (recordatorios 24h)."},
-    {"key": "reminder_hours_before", "label": "Horas antes del recordatorio", "group": "scheduler", "type": "int", "description": "Enviar email de recordatorio X horas antes de la cita."},
-    {"key": "reminder_window_minutes", "label": "Ventana del recordatorio (min)", "group": "scheduler", "type": "int", "description": "Margen ± para el job periódico."},
+    {"key": "scheduler_enabled", "label": "Scheduler activo", "group": "scheduler", "type": "bool", "description": "Envía recordatorios nocturnos de citas del día siguiente."},
+    {"key": "reminder_send_hour", "label": "Hora del recordatorio (0-23)", "group": "scheduler", "type": "int", "description": "Hora local a la que se envían los avisos del día siguiente. Ej: 21 = 21:00."},
+    {"key": "reminder_timezone", "label": "Zona horaria recordatorios", "group": "scheduler", "type": "string", "description": "Zona IANA para calcular el día siguiente. Ej: Europe/Madrid."},
 ]
 
 CONFIGURABLE_KEYS = {item["key"] for item in SETTING_DEFINITIONS}
@@ -64,8 +64,8 @@ class RuntimeSettings:
     telegram_bot_username: str = "ronalbarber_bot"
     telegram_webhook_secret: str = ""
     scheduler_enabled: bool = True
-    reminder_hours_before: int = 24
-    reminder_window_minutes: int = 15
+    reminder_send_hour: int = 21
+    reminder_timezone: str = "Europe/Madrid"
 
     @classmethod
     def from_values(cls, values: dict[str, str]) -> RuntimeSettings:
@@ -79,8 +79,8 @@ class RuntimeSettings:
                 return default
 
         env = get_settings()
-        defaults = env.model_dump()
-        merged = {**defaults, **values}
+        env_defaults = {key: str(getattr(env, key)) for key in CONFIGURABLE_KEYS if hasattr(env, key)}
+        merged = {**env_defaults, **values}
 
         return cls(
             app_name=str(merged.get("app_name", cls.app_name)),
@@ -99,8 +99,8 @@ class RuntimeSettings:
             telegram_bot_username=str(merged.get("telegram_bot_username", cls.telegram_bot_username)),
             telegram_webhook_secret=str(merged.get("telegram_webhook_secret", "")),
             scheduler_enabled=as_bool(str(merged.get("scheduler_enabled", "true")), True),
-            reminder_hours_before=as_int(str(merged.get("reminder_hours_before", "24")), 24),
-            reminder_window_minutes=as_int(str(merged.get("reminder_window_minutes", "15")), 15),
+            reminder_send_hour=as_int(str(merged.get("reminder_send_hour", "21")), 21),
+            reminder_timezone=str(merged.get("reminder_timezone", cls.reminder_timezone)),
         )
 
     @property
@@ -119,11 +119,18 @@ class RuntimeSettings:
 _cache: RuntimeSettings | None = None
 
 
-def get_runtime_settings() -> RuntimeSettings:
+def clear_runtime_settings_cache() -> None:
     global _cache
-    if _cache is None:
-        _cache = RuntimeSettings.from_values({})
-    return _cache
+    _cache = None
+
+
+def get_runtime_settings() -> RuntimeSettings:
+    """Return DB-backed runtime settings. Falls back to env defaults only before startup refresh."""
+    global _cache
+    if _cache is not None:
+        return _cache
+    logger.debug("Runtime settings cache not loaded; using environment defaults")
+    return RuntimeSettings.from_values({})
 
 
 def _env_defaults() -> dict[str, str]:
@@ -136,7 +143,7 @@ async def refresh_cache(db: AsyncSession) -> RuntimeSettings:
     rows = await db.scalars(select(SystemSetting))
     db_values = {row.key: row.value for row in rows.all()}
     _cache = RuntimeSettings.from_values(db_values)
-    logger.info("Runtime settings cache refreshed")
+    logger.info("Runtime settings cache refreshed from database (%d keys)", len(db_values))
     return _cache
 
 
@@ -147,6 +154,7 @@ async def ensure_defaults_seeded(db: AsyncSession) -> None:
         if key not in existing and value:
             db.add(SystemSetting(key=key, value=value))
     await db.commit()
+    await refresh_cache(db)
 
 
 async def get_settings_for_admin(db: AsyncSession) -> list[dict[str, Any]]:

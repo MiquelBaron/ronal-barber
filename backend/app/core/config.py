@@ -31,8 +31,8 @@ class Settings(BaseSettings):
     telegram_webhook_secret: str = ""
 
     scheduler_enabled: bool = True
-    reminder_hours_before: int = 24
-    reminder_window_minutes: int = 15
+    reminder_send_hour: int = 21
+    reminder_timezone: str = "Europe/Madrid"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

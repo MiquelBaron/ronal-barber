@@ -1,6 +1,6 @@
 # Ronal Barber
 
-Web premium para barbería masculina: reservas online, emails de confirmación/cancelación, recordatorios 24h, bot Telegram para barberos y panel de gestión.
+Web premium para barbería masculina: reservas online, emails de confirmación/cancelación, recordatorios nocturnos del día siguiente, bot Telegram para barberos y panel de gestión.
 
 ## Requisitos
 
@@ -74,7 +74,7 @@ Generar JWT secret (PowerShell):
 
 - Reserva online en `/reservar`
 - Email de confirmación con enlace de cancelación (`/cancelar/{token}`)
-- Recordatorio automático ~24h antes (si SMTP configurado)
+- Recordatorio automático cada noche (21:00 por defecto) para las citas del día siguiente (si SMTP configurado)
 
 ### Staff (`/admin`)
 

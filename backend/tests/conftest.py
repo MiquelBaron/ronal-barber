@@ -11,6 +11,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.main import app
 from app.models.models import Barber, Base, BusinessHours, Service, User
+from app.services.settings_store import clear_runtime_settings_cache, ensure_defaults_seeded
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -33,7 +34,10 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         session.add(User(email="admin@test.com", password_hash=hash_password("password123"), role="admin"))
         session.add(User(email="barber@test.com", password_hash=hash_password("password123"), role="barber", barber_id=barber.id))
         await session.commit()
+        clear_runtime_settings_cache()
+        await ensure_defaults_seeded(session)
         yield session
+        clear_runtime_settings_cache()
 
     await engine.dispose()
 

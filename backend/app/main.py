@@ -12,7 +12,7 @@ from app.core.production import fail_startup, validate_production_settings
 from app.services.uploads import UPLOAD_ROOT, ensure_upload_dirs
 from app.db.session import SessionLocal
 from app.services.scheduler import apply_scheduler_settings, stop_scheduler
-from app.services.settings_store import ensure_defaults_seeded, get_runtime_settings, refresh_cache
+from app.services.settings_store import ensure_defaults_seeded, get_runtime_settings
 from app.telegram.bot import poll_telegram_updates
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
     ensure_upload_dirs()
     async with SessionLocal() as db:
         await ensure_defaults_seeded(db)
-        await refresh_cache(db)
+    app.title = get_runtime_settings().app_name
     apply_scheduler_settings()
     polling_task = asyncio.create_task(telegram_polling_loop())
     yield
@@ -74,8 +74,7 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 
-runtime = get_runtime_settings()
-app = FastAPI(title=runtime.app_name, version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="Ronal Barber API", version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(DynamicCORSMiddleware)
 app.include_router(router)

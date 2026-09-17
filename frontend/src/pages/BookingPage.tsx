@@ -11,6 +11,14 @@ const STEPS = [
   { id: 3, label: "Tus datos", icon: User },
 ] as const;
 
+function localTodayIso(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function BookingPage() {
   const [searchParams] = useSearchParams();
   const [services, setServices] = useState<Service[]>([]);
@@ -43,6 +51,14 @@ export function BookingPage() {
       })
       .catch(() => setMessage("No hemos podido cargar la disponibilidad."));
   }, []);
+
+  const todayIso = useMemo(() => localTodayIso(), []);
+
+  useEffect(() => {
+    if (step === 2 && !date) {
+      setDate(todayIso);
+    }
+  }, [step, date, todayIso]);
 
   useEffect(() => {
     if (!serviceId || !date) {
@@ -241,12 +257,29 @@ export function BookingPage() {
                 <p className="mt-2 text-sm text-black/50">Selecciona cuándo quieres venir.</p>
               </div>
 
-              <label className="block">
-                <span className="text-[10px] uppercase tracking-[0.18em] text-black/45">Fecha</span>
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-black/45">Fecha</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDate(todayIso);
+                      setSlot("");
+                    }}
+                    className={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] transition-colors ${
+                      date === todayIso
+                        ? "border-ink bg-ink text-paper"
+                        : "border-black/15 bg-white text-black/70 hover:border-accent hover:text-ink"
+                    }`}
+                  >
+                    <Calendar size={12} />
+                    Hoy
+                  </button>
+                </div>
                 <input
                   required
                   type="date"
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={todayIso}
                   value={date}
                   onChange={(e) => {
                     setDate(e.target.value);
@@ -254,7 +287,7 @@ export function BookingPage() {
                   }}
                   className="mt-2 w-full max-w-xs border-b-2 border-black/20 bg-transparent py-3 outline-none focus:border-accent"
                 />
-              </label>
+              </div>
 
               <div>
                 <div className="flex items-center gap-2">

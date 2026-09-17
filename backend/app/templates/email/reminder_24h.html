@@ -1,15 +1,25 @@
-<!DOCTYPE html>
-<html>
-<body style="font-family: sans-serif; color: #111;">
-  <h2>Recordatorio de cita — {{ shop_name }}</h2>
-  <p>Hola {{ customer_name }},</p>
-  <p>Te recordamos que mañana tienes cita:</p>
-  <ul>
-    <li><strong>Servicio:</strong> {{ service_name }}</li>
-    <li><strong>Barbero:</strong> {{ barber_name }}</li>
-    <li><strong>Fecha:</strong> {{ date }}</li>
-    <li><strong>Hora:</strong> {{ start_time }}</li>
-  </ul>
-  <p>Si no puedes asistir, cancela aquí: <a href="{{ cancel_url }}">{{ cancel_url }}</a></p>
-</body>
-</html>
+{% extends "layout.html" %}
+
+{% block title %}Recordatorio de cita — {{ shop_name }}{% endblock %}
+{% block preheader %}Recordatorio: mañana tienes cita en {{ shop_name }} a las {{ start_time }}.{% endblock %}
+{% block heading %}Te esperamos mañana{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 16px;">Hola <strong>{{ customer_name }}</strong>,</p>
+<p style="margin:0 0 8px;">Te recordamos que <strong>mañana</strong> tienes cita con nosotros:</p>
+
+{% with details=[
+  ('Servicio', service_name),
+  ('Barbero', barber_name),
+  ('Fecha', date),
+  ('Hora', start_time)
+] %}
+  {% include "_detail_card.html" %}
+{% endwith %}
+
+<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#555555;">
+  Si tu plan ha cambiado, cancela con antelación para que otro cliente pueda reservar.
+</p>
+
+{% include "_cancel_button.html" %}
+{% endblock %}

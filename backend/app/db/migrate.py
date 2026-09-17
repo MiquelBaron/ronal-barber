@@ -41,17 +41,19 @@ POSTGRES_PATCHES: list[str] = [
     "CREATE EXTENSION IF NOT EXISTS btree_gist",
     """
     DO $$ BEGIN
-        ALTER TABLE appointments ADD CONSTRAINT ex_appointments_no_overlap
-        EXCLUDE USING gist (
-            barber_id WITH =,
-            tsrange(
-                (date + start_time)::timestamp,
-                (date + end_time)::timestamp,
-                '[)'
-            ) WITH &&
-        ) WHERE (status <> 'cancelled' AND barber_id IS NOT NULL);
-    EXCEPTION
-        WHEN duplicate_object THEN NULL;
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'ex_appointments_no_overlap'
+        ) THEN
+            ALTER TABLE appointments ADD CONSTRAINT ex_appointments_no_overlap
+            EXCLUDE USING gist (
+                barber_id WITH =,
+                tsrange(
+                    (date + start_time)::timestamp,
+                    (date + end_time)::timestamp,
+                    '[)'
+                ) WITH &&
+            ) WHERE (status <> 'cancelled' AND barber_id IS NOT NULL);
+        END IF;
     END $$;
     """,
 ]

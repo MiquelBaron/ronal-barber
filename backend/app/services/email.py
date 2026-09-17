@@ -1,5 +1,6 @@
 import logging
 from datetime import date, time
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -13,6 +14,8 @@ from app.models.models import Appointment, Barber, Service
 logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "email"
+LOGO_PATH = TEMPLATE_DIR / "assets" / "logo_ronal.png"
+LOGO_CID = "logo"
 env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape(["html", "xml"]))
 
 
@@ -28,6 +31,7 @@ def _render(template_name: str, **context: object) -> tuple[str, str]:
     settings = get_runtime_settings()
     context.setdefault("shop_name", settings.app_name)
     context.setdefault("public_base_url", settings.public_base_url)
+    context.setdefault("logo_cid", LOGO_CID if LOGO_PATH.is_file() else None)
     html = env.get_template(f"{template_name}.html").render(**context)
     text = env.get_template(f"{template_name}.txt").render(**context)
     return html, text
@@ -39,12 +43,24 @@ async def _send_email(to: str, subject: str, html: str, text: str) -> bool:
         logger.info("Email disabled; would send to %s: %s", to, subject)
         return False
 
-    message = MIMEMultipart("alternative")
+    if LOGO_PATH.is_file():
+        message: MIMEMultipart = MIMEMultipart("related")
+        alternative = MIMEMultipart("alternative")
+        message.attach(alternative)
+        alternative.attach(MIMEText(text, "plain", "utf-8"))
+        alternative.attach(MIMEText(html, "html", "utf-8"))
+        logo_image = MIMEImage(LOGO_PATH.read_bytes(), _subtype="png")
+        logo_image.add_header("Content-ID", f"<{LOGO_CID}>")
+        logo_image.add_header("Content-Disposition", "inline", filename="logo_ronal.png")
+        message.attach(logo_image)
+    else:
+        message = MIMEMultipart("alternative")
+        message.attach(MIMEText(text, "plain", "utf-8"))
+        message.attach(MIMEText(html, "html", "utf-8"))
+
     message["From"] = settings.smtp_from
     message["To"] = to
     message["Subject"] = subject
-    message.attach(MIMEText(text, "plain", "utf-8"))
-    message.attach(MIMEText(html, "html", "utf-8"))
 
     try:
         await aiosmtplib.send(
@@ -124,6 +140,7 @@ async def send_reminder_24h(
     if not appointment.cancel_token:
         return False
 
+    settings = get_runtime_settings()
     html, text = _render(
         "reminder_24h",
         customer_name=appointment.customer_name,
@@ -135,7 +152,7 @@ async def send_reminder_24h(
     )
     return await _send_email(
         appointment.customer_email,
-        f"Recordatorio: tu cita mañana — Ronal Barber",
+        f"Recordatorio: tu cita mañana — {settings.app_name}",
         html,
         text,
     )

@@ -9,3 +9,5 @@ Te recordamos que mañana tienes cita:
 - Hora: {{ start_time }}
 
 Si no puedes asistir, cancela aquí: {{ cancel_url }}
+
+— {{ shop_name }}

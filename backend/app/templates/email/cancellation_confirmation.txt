@@ -4,4 +4,6 @@ Hola {{ customer_name }},
 
 Tu cita del {{ date }} a las {{ start_time }} ({{ service_name }}) ha sido cancelada correctamente.
 
-Esperamos verte pronto.
+Esperamos verte pronto. Puedes reservar de nuevo en: {{ public_base_url }}/reservar
+
+— {{ shop_name }}

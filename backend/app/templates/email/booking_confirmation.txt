@@ -9,6 +9,10 @@ Tu reserva ha sido confirmada:
 - Hora: {{ start_time }} - {{ end_time }}
 - Precio: {{ price }} €
 
+El pago se realizará en el local el día de tu cita.
+
 Si necesitas cancelar, visita: {{ cancel_url }}
 
 ¡Nos vemos en la silla!
+
+— {{ shop_name }}
