@@ -4,12 +4,16 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { staffRoleLabel, useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
+import type { Barber } from "../types/api";
 
 type User = {
   id: number;
   email: string;
   role: string;
+  barber_id?: number | null;
 };
+
+const BARBER_ROLES = new Set(["barber", "admin_barber"]);
 
 export function AdminLoginPage() {
   const navigate = useNavigate();
@@ -188,11 +192,21 @@ function AdminUsersSection() {
   const { isAdmin } = useStaff();
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [role, setRole] = useState("admin");
   const [error, setError] = useState("");
+
+  const needsBarber = BARBER_ROLES.has(role);
+  const barberNameById = Object.fromEntries(barbers.map((barber) => [barber.id, barber.name]));
 
   useEffect(() => {
     if (!isAdmin) return;
-    api.getUsers().then(setUsers).catch(() => navigate("/admin/login"));
+    Promise.all([api.getUsers(), api.getBarbers(true)])
+      .then(([loadedUsers, loadedBarbers]) => {
+        setUsers(loadedUsers);
+        setBarbers(loadedBarbers);
+      })
+      .catch(() => navigate("/admin/login"));
   }, [isAdmin, navigate]);
 
   if (!isAdmin) return <Navigate to="/admin/appointments" replace />;
@@ -209,17 +223,28 @@ function AdminUsersSection() {
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const selectedRole = String(form.get("role"));
+    const barberIdRaw = form.get("barber_id");
+    const barberId = barberIdRaw ? Number(barberIdRaw) : null;
+
+    if (BARBER_ROLES.has(selectedRole) && !barberId) {
+      setError("Selecciona el barbero al que vincular este usuario.");
+      return;
+    }
+
     try {
       const user = await api.createUser({
         email: String(form.get("email")),
         password: String(form.get("password")),
-        role: String(form.get("role")),
+        role: selectedRole,
+        barber_id: BARBER_ROLES.has(selectedRole) ? barberId : null,
       });
       setUsers([...users, user]);
       event.currentTarget.reset();
+      setRole("admin");
       setError("");
     } catch {
-      setError("No se puede crear el usuario. Comprueba los datos.");
+      setError("No se puede crear el usuario. Comprueba email, contraseña y barbero vinculado.");
     }
   }
 
@@ -227,22 +252,60 @@ function AdminUsersSection() {
     <section>
       <StaffPageHeader eyebrow="Administración" title="Usuarios" description="Gestiona accesos de admin y barberos." />
       {error && <div className="mb-6 border border-red-700/15 bg-red-700/5 px-4 py-3 text-xs text-red-700">{error}</div>}
-      <form onSubmit={add} className="mb-8 grid gap-5 rounded-sm border border-black/10 bg-white p-6 shadow-sm lg:grid-cols-[1.4fr_1fr_180px_auto]">
+      <form
+        onSubmit={add}
+        className="mb-8 grid gap-5 rounded-sm border border-black/10 bg-white p-6 shadow-sm sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_160px_1fr_auto]"
+      >
         <input required type="email" name="email" placeholder="usuario@email.com" className="border-b border-black/20 bg-transparent py-3 text-sm" />
-        <input required minLength={4} type="password" name="password" placeholder="Contraseña" className="border-b border-black/20 bg-transparent py-3 text-sm" />
-        <select name="role" className="border-b border-black/20 bg-transparent py-3 text-sm">
+        <input required minLength={8} type="password" name="password" placeholder="Contraseña (mín. 8)" className="border-b border-black/20 bg-transparent py-3 text-sm" />
+        <select
+          name="role"
+          value={role}
+          onChange={(event) => setRole(event.target.value)}
+          className="border-b border-black/20 bg-transparent py-3 text-sm"
+        >
           <option value="admin">Admin</option>
           <option value="admin_barber">Barbero jefe</option>
           <option value="barber">Barbero</option>
         </select>
-        <button type="submit" className="self-end bg-ink px-6 py-3 text-[10px] uppercase tracking-[0.18em] text-paper">Crear</button>
+        {needsBarber ? (
+          <select
+            required
+            name="barber_id"
+            defaultValue=""
+            className="border-b border-black/20 bg-transparent py-3 text-sm"
+          >
+            <option value="" disabled>
+              Vincular barbero…
+            </option>
+            {barbers.map((barber) => (
+              <option key={barber.id} value={barber.id}>
+                {barber.name}
+                {!barber.active ? " (inactivo)" : ""}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="hidden lg:block" aria-hidden="true" />
+        )}
+        <button type="submit" className="self-end bg-ink px-6 py-3 text-[10px] uppercase tracking-[0.18em] text-paper sm:col-span-2 lg:col-span-1">
+          Crear
+        </button>
       </form>
+      {needsBarber && barbers.length === 0 && (
+        <p className="mb-6 text-sm text-black/50">
+          Crea primero un barbero en la sección Barberos antes de añadir usuarios con rol barbero.
+        </p>
+      )}
       <div className="divide-y divide-black/10 rounded-sm border border-black/10 bg-white shadow-sm">
         {users.map((user) => (
           <div key={user.id} className="flex items-center justify-between px-6 py-5">
             <div>
               <p className="text-sm">{user.email}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-black/40">{staffRoleLabel(user.role)}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-black/40">
+                {staffRoleLabel(user.role)}
+                {user.barber_id ? ` · ${barberNameById[user.barber_id] ?? `Barbero #${user.barber_id}`}` : ""}
+              </p>
             </div>
             <button onClick={() => remove(user.id)} className="text-[10px] uppercase tracking-[0.15em] text-red-700">Eliminar</button>
           </div>

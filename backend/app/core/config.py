@@ -7,7 +7,7 @@ from app.core.production import validate_production_settings
 
 
 class Settings(BaseSettings):
-    app_name: str = "Ronal Barber API"
+    app_name: str = "Ronal Barber"
     environment: str = "development"
     database_url: str = "postgresql+asyncpg://barber:barber_dev@localhost:5432/barbershop"
     frontend_origin: str = "http://localhost:5173"
