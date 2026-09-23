@@ -17,12 +17,13 @@ export function SiteHeader() {
 
   return (
     <header className="fixed z-20 w-full border-b border-white/10 bg-ink/90 backdrop-blur-lg">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
-        <Link to="/" className="flex items-center gap-3" onClick={close}>
-          <img src={logo} alt="Ronal Barber" className="h-10 w-10 object-contain" />
-          <span className="hidden text-[10px] uppercase tracking-[0.28em] text-white/70 sm:block">
-            Ronal Barber
-          </span>
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-2.5 lg:px-10 lg:py-3">
+        <Link to="/" className="flex shrink-0 items-center" onClick={close}>
+          <img
+            src={logo}
+            alt="Ronal Barber"
+            className="h-11 w-auto max-w-[11rem] object-contain object-left sm:h-12 sm:max-w-[13rem] lg:h-14 lg:max-w-[15rem]"
+          />
         </Link>
 
         <nav className="hidden items-center gap-7 text-[11px] uppercase tracking-[0.16em] text-white/60 md:flex">

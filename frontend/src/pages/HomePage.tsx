@@ -23,7 +23,7 @@ export function HomePage({
   return (
     <main className="min-h-screen bg-ink text-paper">
       {/* Hero */}
-      <section className="relative flex min-h-screen items-end overflow-hidden px-6 pb-16 pt-28 lg:px-10 lg:pb-24">
+      <section className="relative flex min-h-screen items-end overflow-hidden px-6 pt-28 pb-[34vh] lg:px-10 lg:pb-[38vh]">
         <div className="absolute inset-0 z-0">
           <img
             src={fondo}
@@ -33,8 +33,8 @@ export function HomePage({
           <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/95 via-35% to-ink/30" />
         </div>
 
-        <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-14 lg:grid-cols-[1.35fr_0.65fr] lg:items-end">
-          <div>
+        <div className="relative z-10 mx-auto w-full max-w-7xl lg:max-w-4xl">
+          <div className="max-w-3xl">
             <p className="mb-6 text-[10px] uppercase tracking-[0.32em] text-accent">
               Barbería masculina · Lleida
               <span className={`ml-3 ${apiOnline ? "text-green-400/80" : "text-white/25"}`}>
