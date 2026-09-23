@@ -1,6 +1,8 @@
 import asyncio
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi import HTTPException
@@ -27,6 +29,59 @@ async def test_availability_returns_slots(db_session: AsyncSession) -> None:
     tomorrow = _next_weekday()
     slots = await booking_service.get_availability_slots(db_session, service_id=1, day=tomorrow)
     assert len(slots) > 0
+
+
+@pytest.mark.asyncio
+@patch("app.services.booking._current_shop_datetime")
+async def test_availability_excludes_past_and_imminent_slots_today(
+    mock_now: patch,
+    db_session: AsyncSession,
+) -> None:
+    mock_now.return_value = datetime(2026, 9, 23, 16, 50, tzinfo=ZoneInfo("Europe/Madrid"))
+    today = date(2026, 9, 23)
+    slots = await booking_service.get_availability_slots(db_session, service_id=1, day=today)
+
+    assert "09:00" not in slots
+    assert "16:20" not in slots
+    assert "17:00" not in slots
+
+
+@pytest.mark.asyncio
+@patch("app.services.booking._current_shop_datetime")
+async def test_availability_includes_slot_after_advance_window(
+    mock_now: patch,
+    db_session: AsyncSession,
+) -> None:
+    mock_now.return_value = datetime(2026, 9, 23, 16, 30, tzinfo=ZoneInfo("Europe/Madrid"))
+    today = date(2026, 9, 23)
+    slots = await booking_service.get_availability_slots(db_session, service_id=1, day=today)
+
+    assert "17:00" in slots
+
+
+@pytest.mark.asyncio
+@patch("app.services.booking._current_shop_datetime")
+async def test_create_appointment_rejects_within_advance_window(
+    mock_now: patch,
+    db_session: AsyncSession,
+) -> None:
+    mock_now.return_value = datetime(2026, 9, 23, 16, 50, tzinfo=ZoneInfo("Europe/Madrid"))
+
+    with pytest.raises(HTTPException) as error:
+        await booking_service.create_appointment(
+            db_session,
+            service_id=1,
+            barber_id=1,
+            day=date(2026, 9, 23),
+            start_time=time(17, 0),
+            customer_name="Juan",
+            customer_surname="Pérez",
+            customer_phone="600123456",
+            customer_email="juan@example.com",
+        )
+
+    assert error.value.status_code == 400
+    assert "10 minutes" in error.value.detail
 
 
 def _next_weekday(offset_days: int = 1) -> date:

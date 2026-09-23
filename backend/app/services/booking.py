@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -12,10 +13,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.models import Appointment, AppointmentStatus, Barber, BusinessHours, DayOff, Service
 
 SLOT_INTERVAL_MINUTES = 40
+BOOKING_MIN_ADVANCE_MINUTES = 10
+BOOKING_TIMEZONE = ZoneInfo("Europe/Madrid")
 
 
 def as_datetime(day: date, value: time) -> datetime:
     return datetime.combine(day, value)
+
+
+def _current_shop_datetime() -> datetime:
+    return datetime.now(BOOKING_TIMEZONE)
+
+
+def _slot_starts_after_booking_cutoff(day: date, start: time) -> bool:
+    """Slot must start strictly more than BOOKING_MIN_ADVANCE_MINUTES after now (shop time)."""
+    cutoff = _current_shop_datetime() + timedelta(minutes=BOOKING_MIN_ADVANCE_MINUTES)
+    slot_start = datetime.combine(day, start, tzinfo=BOOKING_TIMEZONE)
+    return slot_start > cutoff
 
 
 async def active_barbers(db: AsyncSession, barber_id: int | None) -> list[Barber]:
@@ -128,6 +142,9 @@ async def _load_availability_context(
 
 
 async def slot_is_available(db: AsyncSession, service: Service, barber: Barber, day: date, start: time) -> bool:
+    if not _slot_starts_after_booking_cutoff(day, start):
+        return False
+
     if await barber_has_day_off(db, barber.id, day):
         return False
 
@@ -165,7 +182,7 @@ async def get_availability_slots(
     day: date,
     barber_id: int | None = None,
 ) -> list[str]:
-    if day < datetime.now().date():
+    if day < _current_shop_datetime().date():
         return []
 
     service = await db.get(Service, service_id)
@@ -186,6 +203,8 @@ async def get_availability_slots(
     context = await _load_availability_context(db, day=day, barbers=barbers)
     slots: list[str] = []
     for start in _candidate_slot_times(day, context.business_hours, service.duration_minutes):
+        if not _slot_starts_after_booking_cutoff(day, start):
+            continue
         if any(_slot_is_available_in_memory(service, barber, day, start, context) for barber in barbers):
             slots.append(start.strftime("%H:%M"))
     return slots
@@ -218,8 +237,14 @@ async def create_appointment(
     customer_email: str,
     forced_barber_id: int | None = None,
 ) -> tuple[Appointment, Service, Barber]:
-    if day < datetime.now().date():
+    if day < _current_shop_datetime().date():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Appointment date cannot be in the past")
+
+    if not _slot_starts_after_booking_cutoff(day, start_time):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Appointment must be booked at least {BOOKING_MIN_ADVANCE_MINUTES} minutes in advance",
+        )
 
     service = await db.get(Service, service_id)
     if service is None or not service.active:
