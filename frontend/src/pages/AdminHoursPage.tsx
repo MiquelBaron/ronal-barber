@@ -33,16 +33,24 @@ export function AdminHoursPage() {
       });
   }, []);
 
-  function add(event: FormEvent) {
+  async function persistHours(next: BusinessHour[]) {
+    try {
+      const saved = await api.replaceHours(next);
+      setHours(saved);
+      setError("");
+    } catch {
+      setError("No se han podido guardar los horarios.");
+    }
+  }
+
+  async function add(event: FormEvent) {
     event.preventDefault();
 
     if (start >= end) {
-      return setError(
-        "La hora de inicio debe ser anterior a la hora final."
-      );
+      return setError("La hora de inicio debe ser anterior a la hora final.");
     }
 
-    setHours([
+    const next = [
       ...hours,
       {
         day_of_week: day,
@@ -50,20 +58,13 @@ export function AdminHoursPage() {
         end_time: end,
         active: true,
       },
-    ]);
+    ];
 
-    setError("");
+    await persistHours(next);
   }
 
-  async function save() {
-    try {
-      const saved = await api.replaceHours(hours);
-
-      setHours(saved);
-      setError("");
-    } catch {
-      setError("No se han podido guardar los horarios.");
-    }
+  async function removeSlot(item: BusinessHour) {
+    await persistHours(hours.filter((candidate) => candidate !== item));
   }
 
   return (
@@ -105,17 +106,13 @@ export function AdminHoursPage() {
           className="border-b border-black/25 bg-transparent py-3"
         />
 
-        <button className="bg-ink px-5 py-3 text-xs uppercase text-paper">
+        <button type="submit" className="bg-ink px-5 py-3 text-xs uppercase text-paper">
           Añadir franja
         </button>
       </form>
       )}
 
-      {error && (
-        <p className="mt-5 text-red-700">
-          {error}
-        </p>
-      )}
+      {error && <p className="mt-5 text-red-700">{error}</p>}
 
       <div className="mt-10 grid gap-5 md:grid-cols-2">
         {days.map((label, index) => {
@@ -156,7 +153,8 @@ export function AdminHoursPage() {
 
                     {canEdit && (
                     <button
-                      onClick={() => setHours(hours.filter((candidate) => candidate !== item))}
+                      type="button"
+                      onClick={() => void removeSlot(item)}
                       className="text-xs uppercase text-red-700"
                     >
                       Bloquear franja
@@ -170,11 +168,6 @@ export function AdminHoursPage() {
                 </p>
               )}
 
-              {canEdit && (
-              <button onClick={save} className="mt-6 border border-black/25 px-4 py-3 text-xs uppercase">
-                Guardar cambios
-              </button>
-              )}
             </article>
           );
         })}
