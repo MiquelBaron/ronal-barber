@@ -156,3 +156,31 @@ async def send_reminder_24h(
         html,
         text,
     )
+
+
+async def send_review_request(
+    appointment: Appointment,
+    service: Service,
+    barber: Barber | None,
+) -> bool:
+    settings = get_runtime_settings()
+    review_url = (settings.google_review_url or "").strip()
+    if not review_url:
+        logger.debug("Review request skipped for appointment %s: google_review_url empty", appointment.id)
+        return False
+
+    html, text = _render(
+        "review_request",
+        customer_name=appointment.customer_name,
+        service_name=service.name,
+        barber_name=barber.name if barber else "Tu barbero",
+        date=_format_date(appointment.date),
+        start_time=_format_time(appointment.start_time),
+        review_url=review_url,
+    )
+    return await _send_email(
+        appointment.customer_email,
+        f"¿Cómo fue tu visita? — {settings.app_name}",
+        html,
+        text,
+    )

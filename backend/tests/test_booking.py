@@ -84,6 +84,101 @@ async def test_create_appointment_rejects_within_advance_window(
     assert "10 minutes" in error.value.detail
 
 
+@pytest.mark.asyncio
+@patch("app.services.booking._current_shop_datetime")
+async def test_availability_empty_beyond_two_month_horizon(
+    mock_now: patch,
+    db_session: AsyncSession,
+) -> None:
+    mock_now.return_value = datetime(2026, 9, 23, 10, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    too_far = date(2026, 11, 24)  # day after today + 2 months (2026-11-23)
+    slots = await booking_service.get_availability_slots(db_session, service_id=1, day=too_far)
+    assert slots == []
+
+
+@pytest.mark.asyncio
+@patch("app.services.booking._current_shop_datetime")
+async def test_staff_availability_ignores_horizon(
+    mock_now: patch,
+    db_session: AsyncSession,
+) -> None:
+    mock_now.return_value = datetime(2026, 9, 23, 10, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    too_far = date(2026, 12, 15)
+    while too_far.weekday() > 5:
+        too_far += timedelta(days=1)
+    slots = await booking_service.get_availability_slots(
+        db_session,
+        service_id=1,
+        day=too_far,
+        respect_booking_horizon=False,
+    )
+    assert len(slots) > 0
+
+
+@pytest.mark.asyncio
+@patch("app.services.booking._current_shop_datetime")
+async def test_availability_allows_last_day_of_horizon(
+    mock_now: patch,
+    db_session: AsyncSession,
+) -> None:
+    mock_now.return_value = datetime(2026, 9, 23, 10, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    last_day = booking_service.max_bookable_date(date(2026, 9, 23))
+    assert last_day == date(2026, 11, 23)
+    slots = await booking_service.get_availability_slots(db_session, service_id=1, day=last_day)
+    assert isinstance(slots, list)
+
+
+@pytest.mark.asyncio
+@patch("app.services.booking._current_shop_datetime")
+async def test_create_appointment_rejects_beyond_horizon(
+    mock_now: patch,
+    db_session: AsyncSession,
+) -> None:
+    mock_now.return_value = datetime(2026, 9, 23, 10, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+
+    with pytest.raises(HTTPException) as error:
+        await booking_service.create_appointment(
+            db_session,
+            service_id=1,
+            barber_id=1,
+            day=date(2026, 11, 24),
+            start_time=time(10, 0),
+            customer_name="Juan",
+            customer_surname="Pérez",
+            customer_phone="600123456",
+            customer_email="juan@example.com",
+        )
+
+    assert error.value.status_code == 400
+    assert "2 months" in error.value.detail
+
+
+@pytest.mark.asyncio
+@patch("app.services.booking._current_shop_datetime")
+async def test_create_appointment_manual_can_bypass_horizon(
+    mock_now: patch,
+    db_session: AsyncSession,
+) -> None:
+    mock_now.return_value = datetime(2026, 9, 23, 10, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    far_day = date(2026, 12, 15)
+    while far_day.weekday() > 5:
+        far_day += timedelta(days=1)
+
+    appointment, _, _ = await booking_service.create_appointment(
+        db_session,
+        service_id=1,
+        barber_id=1,
+        day=far_day,
+        start_time=time(10, 0),
+        customer_name="Juan",
+        customer_surname="Pérez",
+        customer_phone="600123456",
+        customer_email="juan@example.com",
+        respect_booking_horizon=False,
+    )
+    assert appointment.date == far_day
+
+
 def _next_weekday(offset_days: int = 1) -> date:
     day = date.today() + timedelta(days=offset_days)
     while day.weekday() > 5:
@@ -130,9 +225,9 @@ async def test_availability_has_no_duplicate_slots_with_overlapping_hours(db_ses
     await db_session.execute(delete(BusinessHours))
     db_session.add_all(
         [
-            BusinessHours(day_of_week=weekday, start_time=time(9, 0), end_time=time(14, 0), active=True),
-            BusinessHours(day_of_week=weekday, start_time=time(9, 0), end_time=time(14, 0), active=True),
-            BusinessHours(day_of_week=weekday, start_time=time(10, 0), end_time=time(13, 0), active=True),
+            BusinessHours(barber_id=1, day_of_week=weekday, start_time=time(9, 0), end_time=time(14, 0), active=True),
+            BusinessHours(barber_id=1, day_of_week=weekday, start_time=time(9, 0), end_time=time(14, 0), active=True),
+            BusinessHours(barber_id=1, day_of_week=weekday, start_time=time(10, 0), end_time=time(13, 0), active=True),
         ]
     )
     await db_session.commit()
@@ -239,7 +334,9 @@ async def _seed_booking_db(session: AsyncSession) -> None:
     await session.flush()
     session.add(Service(name="Corte", description="", price=Decimal("20.00"), duration_minutes=30, active=True))
     for day in range(6):
-        session.add(BusinessHours(day_of_week=day, start_time=time(9), end_time=time(18), active=True))
+        session.add(
+            BusinessHours(barber_id=barber.id, day_of_week=day, start_time=time(9), end_time=time(18), active=True)
+        )
     await session.commit()
 
 

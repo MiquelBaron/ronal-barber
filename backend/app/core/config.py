@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_bot_username: str = "ronalbarber_bot"
     telegram_webhook_secret: str = ""
+    telegram_logs_bot_token: str = ""
+    telegram_logs_chat_id: str = ""
 
     scheduler_enabled: bool = True
     reminder_send_hour: int = 21

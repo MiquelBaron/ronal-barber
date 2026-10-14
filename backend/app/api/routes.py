@@ -30,6 +30,8 @@ from app.schemas.schemas import (
     BarberIn,
     BarberOut,
     CancelAppointmentIn,
+    CronJobOut,
+    CronJobUpdateIn,
     DayOffIn,
     DayOffOut,
     HoursIn,
@@ -51,6 +53,7 @@ from app.schemas.schemas import (
 from app.services import appointments as appointments_service
 from app.services import booking as booking_service
 from app.services import notifications as notifications_service
+from app.services import scheduler as scheduler_service
 from app.services import telegram as telegram_service
 from app.services import uploads as uploads_service
 from app.telegram.bot import handle_update
@@ -129,8 +132,16 @@ async def mock_payment() -> dict[str, str]:
 
 
 @router.get("/admin/appointments", response_model=list[AdminAppointmentOut])
-async def admin_appointments(_: User = Depends(require_admin_or_barber), db: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
-    return await appointments_service.get_all_appointments(db)
+async def admin_appointments(
+    view: str = Query(default="today_upcoming", pattern="^(today_upcoming|all)$"),
+    user: User = Depends(require_admin_or_barber),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict[str, object]]:
+    return await appointments_service.get_all_appointments(
+        db,
+        view=view,
+        barber_id=appointments_service.scoped_barber_id_for_user(user),
+    )
 
 
 @router.patch("/admin/appointments/{appointment_id}/status", response_model=AppointmentOut)
@@ -286,16 +297,52 @@ async def delete_barber(barber_id: int, _: User = Depends(require_shop_manager),
 
 
 @router.get("/hours")
-async def get_hours(db: AsyncSession = Depends(get_db)) -> list[HoursIn]:
-    return list((await db.scalars(select(BusinessHours).order_by(BusinessHours.day_of_week, BusinessHours.start_time))).all())
+async def get_hours(
+    barber_id: int | None = Query(default=None, gt=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[HoursIn]:
+    query = select(BusinessHours).order_by(BusinessHours.barber_id, BusinessHours.day_of_week, BusinessHours.start_time)
+    if barber_id is not None:
+        query = query.where(BusinessHours.barber_id == barber_id)
+    return list((await db.scalars(query)).all())
 
 
 @router.put("/hours")
-async def replace_hours(payload: list[HoursIn], _: User = Depends(require_shop_manager), db: AsyncSession = Depends(get_db)) -> list[HoursIn]:
-    await db.execute(delete(BusinessHours))
-    db.add_all([BusinessHours(**item.model_dump()) for item in payload if item.start_time < item.end_time])
+async def replace_hours(
+    payload: list[HoursIn],
+    barber_id: int | None = Query(default=None, gt=0),
+    user: User = Depends(require_admin_or_barber),
+    db: AsyncSession = Depends(get_db),
+) -> list[HoursIn]:
+    if payload:
+        target_barber_ids = {item.barber_id for item in payload}
+        if len(target_barber_ids) != 1:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "All hour rows must belong to the same barber")
+        target_barber_id = next(iter(target_barber_ids))
+        if barber_id is not None and barber_id != target_barber_id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "barber_id query does not match payload")
+    elif barber_id is not None:
+        target_barber_id = barber_id
+    else:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "barber_id is required when clearing hours")
+
+    if is_limited_barber(user) and user.barber_id != target_barber_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You can only edit your own hours")
+
+    barber = await db.get(Barber, target_barber_id)
+    if barber is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found")
+
+    await db.execute(delete(BusinessHours).where(BusinessHours.barber_id == target_barber_id))
+    db.add_all(
+        [
+            BusinessHours(**item.model_dump())
+            for item in payload
+            if item.start_time < item.end_time
+        ]
+    )
     await db.commit()
-    return await get_hours(db)
+    return await get_hours(barber_id=target_barber_id, db=db)
 
 
 @router.get("/availability")
@@ -306,6 +353,25 @@ async def availability(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, list[str]]:
     slots = await booking_service.get_availability_slots(db, service_id, date, barber_id)
+    return {"slots": slots}
+
+
+@router.get("/admin/availability")
+async def admin_availability(
+    service_id: int = Query(gt=0),
+    date: date = Query(...),
+    barber_id: int | None = Query(default=None, gt=0),
+    _: User = Depends(require_admin_or_barber),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, list[str]]:
+    """Staff availability without the public 2-month booking horizon."""
+    slots = await booking_service.get_availability_slots(
+        db,
+        service_id,
+        date,
+        barber_id,
+        respect_booking_horizon=False,
+    )
     return {"slots": slots}
 
 
@@ -347,6 +413,7 @@ async def create_manual_appointment(
         customer_phone=payload.customer_phone,
         customer_email=str(payload.customer_email),
         forced_barber_id=forced_barber_id,
+        respect_booking_horizon=False,
     )
     await notifications_service.on_appointment_created(
         db,
@@ -471,6 +538,33 @@ async def telegram_webhook(request: Request) -> dict[str, bool]:
     update = await request.json()
     await handle_update(update)
     return {"ok": True}
+
+
+@router.get("/admin/crons", response_model=list[CronJobOut])
+async def admin_list_crons(_: User = Depends(require_admin)) -> list[CronJobOut]:
+    jobs = await scheduler_service.list_cron_jobs()
+    return [CronJobOut.model_validate(job) for job in jobs]
+
+
+@router.patch("/admin/crons/{job_id}", response_model=CronJobOut)
+async def admin_update_cron(
+    job_id: int,
+    payload: CronJobUpdateIn,
+    _: User = Depends(require_admin),
+) -> CronJobOut:
+    job = await scheduler_service.set_cron_job_active(job_id, payload.active)
+    if job is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cron job not found")
+    return CronJobOut.model_validate(job)
+
+
+@router.post("/admin/crons/{job_id}/run", response_model=CronJobOut)
+async def admin_run_cron(job_id: int, _: User = Depends(require_admin)) -> CronJobOut:
+    try:
+        job = await scheduler_service.run_cron_job(job_id)
+    except LookupError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Cron job not found") from error
+    return CronJobOut.model_validate(job)
 
 
 @router.get("/admin/settings", response_model=SettingsOut)

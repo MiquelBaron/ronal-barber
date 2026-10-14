@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
 import type { Barber, Service } from "../types/api";
+import { defaultServiceId } from "../utils/services";
 
 const STEPS = [
   { id: 1, label: "Servicio", icon: Scissors },
@@ -11,12 +12,26 @@ const STEPS = [
   { id: 3, label: "Tus datos", icon: User },
 ] as const;
 
+function toIsoDate(year: number, monthIndex: number, day: number): string {
+  const month = String(monthIndex + 1).padStart(2, "0");
+  const dayPart = String(day).padStart(2, "0");
+  return `${year}-${month}-${dayPart}`;
+}
+
 function localTodayIso(): string {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return toIsoDate(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+/** Latest bookable day: today + 2 calendar months (matches backend max_bookable_date). */
+function localMaxBookableIso(): string {
+  const today = new Date();
+  const monthIndex = today.getMonth() + 2;
+  const year = today.getFullYear() + Math.floor(monthIndex / 12);
+  const month = ((monthIndex % 12) + 12) % 12;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const day = Math.min(today.getDate(), lastDay);
+  return toIsoDate(year, month, day);
 }
 
 export function BookingPage() {
@@ -48,17 +63,26 @@ export function BookingPage() {
       .then(([loadedServices, loadedBarbers]) => {
         setServices(loadedServices);
         setBarbers(loadedBarbers);
+        setServiceId((current) => current || defaultServiceId(loadedServices));
       })
       .catch(() => setMessage("No hemos podido cargar la disponibilidad."));
   }, []);
 
   const todayIso = useMemo(() => localTodayIso(), []);
+  const maxBookableIso = useMemo(() => localMaxBookableIso(), []);
 
   useEffect(() => {
     if (step === 2 && !date) {
       setDate(todayIso);
     }
   }, [step, date, todayIso]);
+
+  useEffect(() => {
+    if (date && date > maxBookableIso) {
+      setDate(maxBookableIso);
+      setSlot("");
+    }
+  }, [date, maxBookableIso]);
 
   useEffect(() => {
     if (!serviceId || !date) {
@@ -144,13 +168,13 @@ export function BookingPage() {
   return (
     <main className="min-h-screen bg-[#eceae4] text-ink">
       {/* Header */}
-      <div className="bg-ink px-6 py-16 text-paper lg:px-10 lg:py-20">
+      <div className="bg-ink px-5 py-12 text-paper sm:px-6 sm:py-16 lg:px-10 lg:py-20">
         <div className="mx-auto max-w-6xl">
           <Link to="/" className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40 hover:text-accent">
             <ArrowLeft size={14} /> Ronal Barber
           </Link>
           <p className="mt-10 text-[10px] uppercase tracking-[0.28em] text-accent">Reserva online</p>
-          <h1 className="mt-3 font-display text-5xl uppercase leading-none sm:text-6xl lg:text-7xl">
+          <h1 className="mt-3 font-display text-4xl uppercase leading-none sm:text-6xl lg:text-7xl">
             Tu próxima cita.
           </h1>
           <p className="mt-5 max-w-lg text-white/55">
@@ -186,7 +210,7 @@ export function BookingPage() {
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 lg:grid-cols-[1fr_320px] lg:gap-12 lg:px-10 lg:py-14">
+      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-6 sm:py-10 lg:grid-cols-[1fr_320px] lg:gap-12 lg:px-10 lg:py-14">
         {/* Form area */}
         <div className="booking-panel">
           {step === 1 && (
@@ -280,6 +304,7 @@ export function BookingPage() {
                   required
                   type="date"
                   min={todayIso}
+                  max={maxBookableIso}
                   value={date}
                   onChange={(e) => {
                     setDate(e.target.value);
@@ -287,6 +312,15 @@ export function BookingPage() {
                   }}
                   className="mt-2 w-full max-w-xs border-b-2 border-black/20 bg-transparent py-3 outline-none focus:border-accent"
                 />
+                <p className="mt-2 text-xs text-black/40">
+                  Reservas hasta{" "}
+                  {new Date(maxBookableIso + "T12:00:00").toLocaleDateString("es-ES", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                  .
+                </p>
               </div>
 
               <div>

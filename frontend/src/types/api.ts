@@ -18,6 +18,7 @@ export type Barber = {
 
 export type BusinessHour = {
   id?: number;
+  barber_id: number;
   day_of_week: number;
   start_time: string;
   end_time: string;
@@ -115,4 +116,23 @@ export type SettingsResponse = {
   groups: SettingsGroup[];
   items: SettingItem[];
   bootstrap_note: string;
+};
+
+export type CronJob = {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  trigger_type: string;
+  cron_hour: number | null;
+  cron_minute: number | null;
+  interval_minutes: number | null;
+  active: boolean;
+  last_run_at: string | null;
+  last_run_status: "never" | "running" | "ok" | "error" | string;
+  last_run_duration_ms: number | null;
+  last_run_summary: string;
+  last_error: string;
+  next_run_at: string | null;
+  run_count: number;
 };

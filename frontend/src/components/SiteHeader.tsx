@@ -17,12 +17,12 @@ export function SiteHeader() {
 
   return (
     <header className="fixed z-20 w-full border-b border-white/10 bg-ink/90 backdrop-blur-lg">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-2.5 lg:px-10 lg:py-3">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6 lg:px-10 lg:py-3">
         <Link to="/" className="flex shrink-0 items-center" onClick={close}>
           <img
             src={logo}
             alt="Ronal Barber"
-            className="h-11 w-auto max-w-[11rem] object-contain object-left sm:h-12 sm:max-w-[13rem] lg:h-14 lg:max-w-[15rem]"
+            className="h-10 w-auto max-w-[9.5rem] object-contain object-left sm:h-12 sm:max-w-[13rem] lg:h-14 lg:max-w-[15rem]"
           />
         </Link>
 
@@ -48,6 +48,7 @@ export function SiteHeader() {
         </nav>
 
         <button
+          type="button"
           className="rounded-sm p-2 text-white/80 transition-colors hover:bg-white/5 md:hidden"
           onClick={() => setOpen(!open)}
           aria-label={open ? "Cerrar menú" : "Abrir menú"}
@@ -57,7 +58,7 @@ export function SiteHeader() {
       </div>
 
       {open && (
-        <nav className="border-t border-white/10 bg-ink px-6 py-6 md:hidden">
+        <nav className="max-h-[calc(100dvh-4.5rem)] overflow-y-auto border-t border-white/10 bg-ink px-4 py-6 md:hidden">
           <div className="flex flex-col gap-1">
             {NAV.map(({ to, label }) => (
               <Link
@@ -69,6 +70,13 @@ export function SiteHeader() {
                 {label}
               </Link>
             ))}
+            <Link
+              to="/admin/login"
+              onClick={close}
+              className="px-2 py-3 text-sm uppercase tracking-[0.16em] text-white/40"
+            >
+              Acceso staff
+            </Link>
             <Link
               to="/reservar"
               onClick={close}

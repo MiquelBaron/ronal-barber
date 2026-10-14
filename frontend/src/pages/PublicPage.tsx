@@ -41,19 +41,16 @@ const PAGE_META: Record<string, { eyebrow: string; title: string; description: s
 };
 
 function formatHours(hours: BusinessHour[]): string[] {
-  const byDay = new Map<number, BusinessHour[]>();
+  const byDay = new Map<number, Set<string>>();
   for (const row of hours.filter((h) => h.active)) {
-    const list = byDay.get(row.day_of_week) ?? [];
-    list.push(row);
-    byDay.set(row.day_of_week, list);
+    const ranges = byDay.get(row.day_of_week) ?? new Set<string>();
+    ranges.add(`${row.start_time.slice(0, 5)} – ${row.end_time.slice(0, 5)}`);
+    byDay.set(row.day_of_week, ranges);
   }
 
   return Array.from(byDay.entries())
     .sort(([a], [b]) => a - b)
-    .map(([day, rows]) => {
-      const ranges = rows.map((r) => `${r.start_time.slice(0, 5)} – ${r.end_time.slice(0, 5)}`).join(" / ");
-      return `${DAY_NAMES[day]} · ${ranges}`;
-    });
+    .map(([day, ranges]) => `${DAY_NAMES[day]} · ${Array.from(ranges).sort().join(" / ")}`);
 }
 
 export function PublicPage({
@@ -79,20 +76,20 @@ export function PublicPage({
   return (
     <main className="min-h-screen bg-ink pt-24 text-paper lg:pt-28">
       {/* Page hero */}
-      <section className="border-b border-white/10 px-6 pb-16 lg:px-10 lg:pb-20">
+      <section className="border-b border-white/10 px-5 pb-12 sm:px-6 sm:pb-16 lg:px-10 lg:pb-20">
         <div className="mx-auto max-w-7xl">
           <Link to="/" className="text-[10px] uppercase tracking-[0.2em] text-white/40 hover:text-accent">
             ← Inicio
           </Link>
-          <p className="mt-12 text-[10px] uppercase tracking-[0.28em] text-accent">{meta.eyebrow}</p>
-          <h1 className="mt-4 max-w-4xl font-display text-6xl uppercase leading-[0.92] sm:text-7xl lg:text-8xl">
+          <p className="mt-10 text-[10px] uppercase tracking-[0.28em] text-accent sm:mt-12">{meta.eyebrow}</p>
+          <h1 className="mt-4 max-w-4xl font-display text-4xl uppercase leading-[0.92] sm:text-6xl lg:text-8xl">
             {meta.title}
           </h1>
-          <p className="mt-6 max-w-xl text-lg text-white/55">{meta.description}</p>
+          <p className="mt-5 max-w-xl text-base text-white/55 sm:mt-6 sm:text-lg">{meta.description}</p>
         </div>
       </section>
 
-      <section className="px-6 py-16 lg:px-10 lg:py-20">
+      <section className="px-5 py-12 sm:px-6 sm:py-16 lg:px-10 lg:py-20">
         <div className="mx-auto max-w-7xl">
           {path === "/servicios" && <ServiceList services={services} />}
 

@@ -19,6 +19,7 @@ SETTING_DEFINITIONS: list[dict[str, Any]] = [
     {"key": "environment", "label": "Entorno", "group": "general", "type": "select", "options": ["development", "production"], "description": "En production las cookies de sesión usan HTTPS."},
     {"key": "frontend_origin", "label": "Origen frontend (CORS)", "group": "general", "type": "url", "description": "URL del frontend autorizada para peticiones con credenciales."},
     {"key": "public_base_url", "label": "URL pública del sitio", "group": "general", "type": "url", "description": "Base para enlaces en emails (cancelación, etc.)."},
+    {"key": "google_review_url", "label": "URL reseña Google", "group": "email", "type": "url", "description": "Enlace a Google Maps / reseñas. Vacío = no se envían emails de reseña."},
     {"key": "jwt_secret", "label": "Secreto JWT", "group": "security", "type": "secret", "description": "Clave para firmar sesiones. Cambiarla invalida sesiones activas."},
     {"key": "barber_default_password", "label": "Contraseña por defecto barberos", "group": "security", "type": "secret", "description": "Usada al crear usuarios barbero en el seed inicial."},
     {"key": "smtp_host", "label": "Servidor SMTP", "group": "email", "type": "string", "description": "Ej: smtp.gmail.com"},
@@ -27,9 +28,23 @@ SETTING_DEFINITIONS: list[dict[str, Any]] = [
     {"key": "smtp_password", "label": "Contraseña SMTP", "group": "email", "type": "secret", "description": "Contraseña o app password del SMTP."},
     {"key": "smtp_from", "label": "Remitente (From)", "group": "email", "type": "email", "description": "Dirección que aparece como remitente."},
     {"key": "smtp_use_tls", "label": "Usar TLS", "group": "email", "type": "bool", "description": "Activar STARTTLS en la conexión SMTP."},
-    {"key": "telegram_bot_token", "label": "Token del bot Telegram", "group": "telegram", "type": "secret", "description": "Token de @BotFather."},
+    {"key": "telegram_bot_token", "label": "Token del bot Telegram", "group": "telegram", "type": "secret", "description": "Token de @BotFather (notificaciones a barberos)."},
     {"key": "telegram_bot_username", "label": "Usuario del bot", "group": "telegram", "type": "string", "description": "Sin @. Ej: ronalbarber_bot"},
     {"key": "telegram_webhook_secret", "label": "Secreto webhook Telegram", "group": "telegram", "type": "secret", "description": "Opcional. Si se configura, desactiva long polling."},
+    {
+        "key": "telegram_logs_bot_token",
+        "label": "Token bot de logs (errores)",
+        "group": "telegram",
+        "type": "secret",
+        "description": "Bot aparte solo para errores del servidor. Vacío = no envía logs.",
+    },
+    {
+        "key": "telegram_logs_chat_id",
+        "label": "Chat ID bot de logs",
+        "group": "telegram",
+        "type": "string",
+        "description": "Tu chat_id (o canal) donde el bot de logs enviará ERROR+. Escríbele al bot y obtén el id con getUpdates.",
+    },
     {"key": "scheduler_enabled", "label": "Scheduler activo", "group": "scheduler", "type": "bool", "description": "Envía recordatorios nocturnos de citas del día siguiente."},
     {"key": "reminder_send_hour", "label": "Hora del recordatorio (0-23)", "group": "scheduler", "type": "int", "description": "Hora local a la que se envían los avisos del día siguiente. Ej: 21 = 21:00."},
     {"key": "reminder_timezone", "label": "Zona horaria recordatorios", "group": "scheduler", "type": "string", "description": "Zona IANA para calcular el día siguiente. Ej: Europe/Madrid."},
@@ -52,6 +67,7 @@ class RuntimeSettings:
     environment: str = "development"
     frontend_origin: str = "http://localhost:5173"
     public_base_url: str = "http://localhost:5173"
+    google_review_url: str = ""
     jwt_secret: str = "change-me-in-development"
     barber_default_password: str = "change-me-barber-password"
     smtp_host: str = ""
@@ -63,6 +79,8 @@ class RuntimeSettings:
     telegram_bot_token: str = ""
     telegram_bot_username: str = "ronalbarber_bot"
     telegram_webhook_secret: str = ""
+    telegram_logs_bot_token: str = ""
+    telegram_logs_chat_id: str = ""
     scheduler_enabled: bool = True
     reminder_send_hour: int = 21
     reminder_timezone: str = "Europe/Madrid"
@@ -87,6 +105,7 @@ class RuntimeSettings:
             environment=str(merged.get("environment", cls.environment)),
             frontend_origin=str(merged.get("frontend_origin", cls.frontend_origin)),
             public_base_url=str(merged.get("public_base_url", cls.public_base_url)),
+            google_review_url=str(merged.get("google_review_url", "")),
             jwt_secret=str(merged.get("jwt_secret", cls.jwt_secret)),
             barber_default_password=str(merged.get("barber_default_password", cls.barber_default_password)),
             smtp_host=str(merged.get("smtp_host", "")),
@@ -98,6 +117,8 @@ class RuntimeSettings:
             telegram_bot_token=str(merged.get("telegram_bot_token", "")),
             telegram_bot_username=str(merged.get("telegram_bot_username", cls.telegram_bot_username)),
             telegram_webhook_secret=str(merged.get("telegram_webhook_secret", "")),
+            telegram_logs_bot_token=str(merged.get("telegram_logs_bot_token", "")),
+            telegram_logs_chat_id=str(merged.get("telegram_logs_chat_id", "")),
             scheduler_enabled=as_bool(str(merged.get("scheduler_enabled", "true")), True),
             reminder_send_hour=as_int(str(merged.get("reminder_send_hour", "21")), 21),
             reminder_timezone=str(merged.get("reminder_timezone", cls.reminder_timezone)),
@@ -114,6 +135,10 @@ class RuntimeSettings:
     @property
     def telegram_enabled(self) -> bool:
         return bool(self.telegram_bot_token)
+
+    @property
+    def telegram_logs_enabled(self) -> bool:
+        return bool(self.telegram_logs_bot_token and self.telegram_logs_chat_id)
 
 
 _cache: RuntimeSettings | None = None
@@ -217,7 +242,7 @@ async def update_settings(db: AsyncSession, updates: dict[str, str]) -> RuntimeS
     runtime = await refresh_cache(db)
     from app.services.scheduler import apply_scheduler_settings
 
-    apply_scheduler_settings()
+    await apply_scheduler_settings()
     return runtime
 
 

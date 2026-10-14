@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { Bell, CalendarPlus, CalendarRange } from "lucide-react";
+import { Link } from "react-router-dom";
 import { ManualAppointmentForm } from "../components/ManualAppointmentForm";
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { TelegramLink } from "../components/TelegramLink";
 import { useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
 import type { Appointment, Barber } from "../types/api";
+import { upcomingTodayAppointments } from "../utils/appointments";
 
 type Tab = "agenda" | "nueva" | "telegram";
 
@@ -36,6 +38,7 @@ export function BarberAgendaPage() {
     (appointment) => appointment.date === selectedDate.toISOString().slice(0, 10),
   );
   const appointmentDates = new Set(appointments.map((appointment) => appointment.date));
+  const upcomingToday = useMemo(() => upcomingTodayAppointments(appointments), [appointments]);
 
   const tabs: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
     { id: "agenda", label: "Calendario", icon: CalendarRange },
@@ -51,10 +54,41 @@ export function BarberAgendaPage() {
         description="Tu agenda personal, citas manuales y notificaciones Telegram."
       />
 
+      <div className="mb-8 rounded-sm border border-black/10 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-black/45">Hoy</p>
+            <h2 className="mt-2 font-display text-3xl uppercase">Próximas citas</h2>
+          </div>
+          <Link to="/admin/appointments" className="text-xs uppercase tracking-[0.14em] text-black/50 hover:text-accent">
+            Ver en Citas →
+          </Link>
+        </div>
+        {upcomingToday.length === 0 ? (
+          <p className="mt-6 text-sm text-black/50">No quedan citas próximas para hoy.</p>
+        ) : (
+          <div className="mt-6 divide-y divide-black/10">
+            {upcomingToday.map((appointment) => (
+              <article key={appointment.id} className="grid gap-2 py-4 sm:grid-cols-[80px_1fr_auto] sm:items-center">
+                <time className="font-display text-2xl">{appointment.start_time.slice(0, 5)}</time>
+                <div>
+                  <p className="font-medium">{appointment.service_name}</p>
+                  <p className="text-sm text-black/55">
+                    {appointment.customer_name} {appointment.customer_surname}
+                  </p>
+                </div>
+                <span className="text-[10px] uppercase tracking-[0.12em] text-black/40">{appointment.status}</span>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="mb-8 flex flex-wrap gap-2">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
+            type="button"
             onClick={() => setTab(id)}
             className={`inline-flex items-center gap-2 px-5 py-3 text-xs uppercase tracking-[0.14em] transition-colors ${
               tab === id ? "bg-ink text-paper" : "border border-black/15 bg-white/50 hover:border-black/30"

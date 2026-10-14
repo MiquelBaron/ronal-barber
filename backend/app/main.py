@@ -11,11 +11,13 @@ from app.core.config import get_settings
 from app.core.production import fail_startup, validate_production_settings
 from app.services.uploads import UPLOAD_ROOT, ensure_upload_dirs
 from app.db.session import SessionLocal
-from app.services.scheduler import apply_scheduler_settings, stop_scheduler
+from app.services.scheduler import apply_scheduler_settings, ensure_cron_jobs_seeded, stop_scheduler
 from app.services.settings_store import ensure_defaults_seeded, get_runtime_settings
+from app.services.telegram_logs import configure_telegram_error_logging
 from app.telegram.bot import poll_telegram_updates
 
 logger = logging.getLogger(__name__)
+configure_telegram_error_logging()
 
 
 class DynamicCORSMiddleware(BaseHTTPMiddleware):
@@ -62,8 +64,10 @@ async def lifespan(app: FastAPI):
     ensure_upload_dirs()
     async with SessionLocal() as db:
         await ensure_defaults_seeded(db)
+    configure_telegram_error_logging()
     app.title = get_runtime_settings().app_name
-    apply_scheduler_settings()
+    await ensure_cron_jobs_seeded()
+    await apply_scheduler_settings()
     polling_task = asyncio.create_task(telegram_polling_loop())
     yield
     polling_task.cancel()

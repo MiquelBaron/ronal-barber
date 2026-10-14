@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+
+{% block title %}¿Cómo fue tu visita? — {{ shop_name }}{% endblock %}
+{% block preheader %}Gracias por visitarnos. Si te gustó, déjanos una reseña.{% endblock %}
+{% block heading %}¿Cómo fue tu visita?{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 16px;">Hola <strong>{{ customer_name }}</strong>,</p>
+<p style="margin:0 0 8px;">Gracias por tu cita. Nos encantaría saber qué te pareció:</p>
+
+{% with details=[
+  ('Servicio', service_name),
+  ('Barbero', barber_name),
+  ('Fecha', date),
+  ('Hora', start_time)
+] %}
+  {% include "_detail_card.html" %}
+{% endwith %}
+
+<p style="margin:0 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#555555;">
+  Si estás contento con el resultado, una reseña en Google nos ayuda muchísimo.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 8px;">
+  <tr>
+    <td align="center" bgcolor="#c9a227" style="border-radius:4px;">
+      <a href="{{ review_url }}"
+         style="display:inline-block;padding:14px 28px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;color:#1a1a1a;">
+        Dejar reseña
+      </a>
+    </td>
+  </tr>
+</table>
+{% endblock %}

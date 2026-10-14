@@ -1,6 +1,6 @@
 # Ronal Barber
 
-Web premium para barbería masculina: reservas online, emails de confirmación/cancelación, recordatorios nocturnos del día siguiente, bot Telegram para barberos y panel de gestión.
+Web premium para barbería masculina: reservas online, emails de confirmación/cancelación/reseña, recordatorios nocturnos del día siguiente, horarios por barbero, bot Telegram para barberos y panel de gestión.
 
 ## Requisitos
 
@@ -24,11 +24,13 @@ Equivalente (compatibilidad):
 docker compose up --build
 ```
 
-Servicios:
+Servicios (puertos publicados en `0.0.0.0`):
 
 - Frontend (Vite): http://localhost:5173
 - Backend (Uvicorn `--reload`): http://localhost:8000
 - PostgreSQL: `localhost:5432`
+
+Para probar desde un móvil en la misma Wi‑Fi, abre `http://<IP-del-portátil>:5173` y pon esa misma URL en `FRONTEND_ORIGIN` y `PUBLIC_BASE_URL` del `.env` (CORS).
 
 Usuarios de prueba (se recrean/resetean en cada init del backend):
 
@@ -85,6 +87,8 @@ Generar JWT secret (PowerShell):
 ## Configuración del sistema (panel admin)
 
 Parámetros operativos en **`/admin/settings`** (solo admin). Los cambios se aplican al instante. Solo `DATABASE_URL` permanece en variables de entorno.
+
+Bot de logs de errores: en Telegram configura `telegram_logs_bot_token` + `telegram_logs_chat_id`; los `ERROR`/`CRITICAL` del backend se reenvían ahí automáticamente.
 
 ## Desarrollo local (sin Docker)
 

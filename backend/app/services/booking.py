@@ -1,3 +1,4 @@
+import calendar
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -14,6 +15,7 @@ from app.models.models import Appointment, AppointmentStatus, Barber, BusinessHo
 
 SLOT_INTERVAL_MINUTES = 40
 BOOKING_MIN_ADVANCE_MINUTES = 10
+BOOKING_MAX_MONTHS_AHEAD = 2
 BOOKING_TIMEZONE = ZoneInfo("Europe/Madrid")
 
 
@@ -23,6 +25,20 @@ def as_datetime(day: date, value: time) -> datetime:
 
 def _current_shop_datetime() -> datetime:
     return datetime.now(BOOKING_TIMEZONE)
+
+
+def add_months(day: date, months: int) -> date:
+    month_index = day.month - 1 + months
+    year = day.year + month_index // 12
+    month = month_index % 12 + 1
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, min(day.day, last_day))
+
+
+def max_bookable_date(today: date | None = None) -> date:
+    """Latest calendar day clients can book (today + BOOKING_MAX_MONTHS_AHEAD)."""
+    base = today if today is not None else _current_shop_datetime().date()
+    return add_months(base, BOOKING_MAX_MONTHS_AHEAD)
 
 
 def _slot_starts_after_booking_cutoff(day: date, start: time) -> bool:
@@ -52,7 +68,7 @@ async def barber_has_day_off(db: AsyncSession, barber_id: int, day: date) -> boo
 
 @dataclass(frozen=True)
 class AvailabilityContext:
-    business_hours: list[BusinessHours]
+    hours_by_barber: dict[int, list[BusinessHours]]
     barbers_off: frozenset[int]
     appointments_by_barber: dict[int, list[Appointment]]
 
@@ -67,8 +83,9 @@ def _slot_is_available_in_memory(
     if barber.id in context.barbers_off:
         return False
 
+    hours = context.hours_by_barber.get(barber.id, [])
     end = (as_datetime(day, start) + timedelta(minutes=service.duration_minutes)).time()
-    if not any(start >= row.start_time and end <= row.end_time for row in context.business_hours):
+    if not any(start >= row.start_time and end <= row.end_time for row in hours):
         return False
 
     start_dt, end_dt = as_datetime(day, start), as_datetime(day, end)
@@ -106,12 +123,16 @@ async def _load_availability_context(
         (
             await db.scalars(
                 select(BusinessHours).where(
+                    BusinessHours.barber_id.in_(barber_ids),
                     BusinessHours.day_of_week == weekday,
                     BusinessHours.active.is_(True),
                 )
             )
         ).all()
     )
+    hours_by_barber: dict[int, list[BusinessHours]] = defaultdict(list)
+    for row in business_hours:
+        hours_by_barber[row.barber_id].append(row)
 
     days_off = await db.scalars(
         select(DayOff).where(
@@ -135,7 +156,7 @@ async def _load_availability_context(
             appointments_by_barber[appointment.barber_id].append(appointment)
 
     return AvailabilityContext(
-        business_hours=business_hours,
+        hours_by_barber=dict(hours_by_barber),
         barbers_off=barbers_off,
         appointments_by_barber=dict(appointments_by_barber),
     )
@@ -153,6 +174,7 @@ async def slot_is_available(db: AsyncSession, service: Service, barber: Barber, 
         (
             await db.scalars(
                 select(BusinessHours).where(
+                    BusinessHours.barber_id == barber.id,
                     BusinessHours.day_of_week == day.weekday(),
                     BusinessHours.active.is_(True),
                 )
@@ -181,8 +203,13 @@ async def get_availability_slots(
     service_id: int,
     day: date,
     barber_id: int | None = None,
+    *,
+    respect_booking_horizon: bool = True,
 ) -> list[str]:
-    if day < _current_shop_datetime().date():
+    today = _current_shop_datetime().date()
+    if day < today:
+        return []
+    if respect_booking_horizon and day > max_bookable_date(today):
         return []
 
     service = await db.get(Service, service_id)
@@ -201,8 +228,9 @@ async def get_availability_slots(
         return []
 
     context = await _load_availability_context(db, day=day, barbers=barbers)
+    all_hours = [row for rows in context.hours_by_barber.values() for row in rows]
     slots: list[str] = []
-    for start in _candidate_slot_times(day, context.business_hours, service.duration_minutes):
+    for start in _candidate_slot_times(day, all_hours, service.duration_minutes):
         if not _slot_starts_after_booking_cutoff(day, start):
             continue
         if any(_slot_is_available_in_memory(service, barber, day, start, context) for barber in barbers):
@@ -236,9 +264,17 @@ async def create_appointment(
     customer_phone: str,
     customer_email: str,
     forced_barber_id: int | None = None,
+    respect_booking_horizon: bool = True,
 ) -> tuple[Appointment, Service, Barber]:
-    if day < _current_shop_datetime().date():
+    today = _current_shop_datetime().date()
+    if day < today:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Appointment date cannot be in the past")
+
+    if respect_booking_horizon and day > max_bookable_date(today):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Appointments can only be booked up to {BOOKING_MAX_MONTHS_AHEAD} months ahead",
+        )
 
     if not _slot_starts_after_booking_cutoff(day, start_time):
         raise HTTPException(

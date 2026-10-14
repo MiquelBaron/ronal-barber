@@ -30,7 +30,15 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         service = Service(name="Corte", description="", price=Decimal("20.00"), duration_minutes=30, active=True)
         session.add(service)
         for day in range(6):
-            session.add(BusinessHours(day_of_week=day, start_time=time(9), end_time=time(18), active=True))
+            session.add(
+                BusinessHours(
+                    barber_id=barber.id,
+                    day_of_week=day,
+                    start_time=time(9),
+                    end_time=time(18),
+                    active=True,
+                )
+            )
         session.add(User(email="admin@test.com", password_hash=hash_password("password123"), role="admin"))
         session.add(User(email="barber@test.com", password_hash=hash_password("password123"), role="barber", barber_id=barber.id))
         await session.commit()

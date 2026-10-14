@@ -144,6 +144,7 @@ function AdminDashboard() {
   const cards = [
     { to: "/admin/appointments", label: "Citas", hint: "Agenda completa" },
     { to: "/admin/services", label: "Servicios", hint: "Catálogo" },
+    { to: "/admin/crons", label: "Crons", hint: "Jobs y estado" },
     { to: "/admin/settings", label: "Configuración", hint: "SMTP, Telegram" },
   ];
 

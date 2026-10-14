@@ -57,5 +57,7 @@ export function staffRoleLabel(role: string): string {
 }
 
 export function staffHomePath(role: string): string {
-  return role === "admin" ? "/admin" : "/admin/appointments";
+  if (role === "admin") return "/admin";
+  if (role === "barber") return "/admin/agenda";
+  return "/admin/appointments";
 }

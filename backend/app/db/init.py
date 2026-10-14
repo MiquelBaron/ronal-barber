@@ -101,12 +101,19 @@ async def seed_catalog_if_empty(session) -> None:
         session.add_all(
             [Barber(name=name, description=description, specialties=specialties) for name, description, specialties in BARBERS]
         )
+        await session.flush()
     if not (await session.scalar(select(BusinessHours.id).limit(1))):
+        barbers = list((await session.scalars(select(Barber))).all())
         intervals = []
-        for day in range(6):
-            intervals.append(BusinessHours(day_of_week=day, start_time=time(9), end_time=time(14)))
-            if day < 5:
-                intervals.append(BusinessHours(day_of_week=day, start_time=time(16), end_time=time(20)))
+        for barber in barbers:
+            for day in range(6):
+                intervals.append(
+                    BusinessHours(barber_id=barber.id, day_of_week=day, start_time=time(9), end_time=time(14))
+                )
+                if day < 5:
+                    intervals.append(
+                        BusinessHours(barber_id=barber.id, day_of_week=day, start_time=time(16), end_time=time(20))
+                    )
         session.add_all(intervals)
 
 

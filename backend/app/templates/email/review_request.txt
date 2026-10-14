@@ -1,0 +1,14 @@
+¿Cómo fue tu visita? — {{ shop_name }}
+
+Hola {{ customer_name }},
+
+Gracias por tu cita:
+- Servicio: {{ service_name }}
+- Barbero: {{ barber_name }}
+- Fecha: {{ date }}
+- Hora: {{ start_time }}
+
+Si estás contento con el resultado, déjanos una reseña aquí:
+{{ review_url }}
+
+— {{ shop_name }}

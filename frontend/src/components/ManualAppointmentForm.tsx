@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../services/api";
 import type { Barber, Service } from "../types/api";
+import { defaultServiceId } from "../utils/services";
 
 type Props = {
   barbers: Barber[];
@@ -22,13 +23,19 @@ export function ManualAppointmentForm({ barbers, defaultBarberId, isBarber = fal
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    api.getServices().then(setServices).catch(() => setError("No se pudieron cargar servicios."));
+    api
+      .getServices()
+      .then((loaded) => {
+        setServices(loaded);
+        setServiceId((current) => current || defaultServiceId(loaded));
+      })
+      .catch(() => setError("No se pudieron cargar servicios."));
   }, []);
 
   useEffect(() => {
     if (!serviceId || !date) return;
     api
-      .getAvailability(Number(serviceId), date, barberId ? Number(barberId) : undefined)
+      .getStaffAvailability(Number(serviceId), date, barberId ? Number(barberId) : undefined)
       .then(({ slots: loaded }) => setSlots(loaded))
       .catch(() => setError("No se pudieron cargar horas."));
   }, [serviceId, barberId, date]);
@@ -51,7 +58,7 @@ export function ManualAppointmentForm({ barbers, defaultBarberId, isBarber = fal
       });
       setSuccess(true);
       event.currentTarget.reset();
-      setServiceId("");
+      setServiceId(defaultServiceId(services));
       setSlot("");
       setSlots([]);
       onCreated?.();

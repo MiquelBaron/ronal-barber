@@ -46,7 +46,7 @@ services:
       REMINDER_SEND_HOUR: ${REMINDER_SEND_HOUR:-21}
       REMINDER_TIMEZONE: ${REMINDER_TIMEZONE:-Europe/Madrid}
     ports:
-      - "8000:8000"
+      - "0.0.0.0:8000:8000"
     volumes:
       - ./backend:/app
       - barber_uploads_dev:/app/uploads
@@ -66,7 +66,7 @@ services:
     container_name: ronal-barber-frontend-dev
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "0.0.0.0:5173:5173"
     environment:
       VITE_API_PROXY_TARGET: http://backend:8000
     command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"

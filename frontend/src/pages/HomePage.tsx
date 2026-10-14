@@ -23,48 +23,47 @@ export function HomePage({
   return (
     <main className="min-h-screen bg-ink text-paper">
       {/* Hero */}
-      <section className="relative flex min-h-screen items-end overflow-hidden px-6 pt-28 pb-[34vh] lg:px-10 lg:pb-[38vh]">
+      <section className="relative flex min-h-[100svh] items-end overflow-hidden px-5 pb-24 pt-24 sm:px-6 sm:pb-[28vh] sm:pt-28 lg:px-10 lg:pb-[38vh]">
         <div className="absolute inset-0 z-0">
           <img
             src={fondo}
             alt="Fachada Ronal Barber"
-            className="h-full w-full object-cover object-right translate-x-[20%] scale-105"
+            className="h-full w-full scale-105 object-cover object-center sm:object-[70%_center] lg:translate-x-[12%] lg:object-right"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/95 via-35% to-ink/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/75 to-ink/35 sm:bg-gradient-to-r sm:from-ink sm:via-ink/90 sm:via-40% sm:to-ink/25" />
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-7xl lg:max-w-4xl">
           <div className="max-w-3xl">
-            <p className="mb-6 text-[10px] uppercase tracking-[0.32em] text-accent">
+            <p className="mb-5 text-[10px] uppercase tracking-[0.28em] text-accent sm:mb-6 sm:tracking-[0.32em]">
               Barbería masculina · Lleida
-              <span className={`ml-3 ${apiOnline ? "text-green-400/80" : "text-white/25"}`}>
+              <span className={`ml-2 sm:ml-3 ${apiOnline ? "text-green-400/80" : "text-white/25"}`}>
                 · {apiOnline ? "Reservas online" : "Sin conexión"}
               </span>
             </p>
-            <h1 className="max-w-3xl font-display text-[clamp(3rem,10vw,8rem)] uppercase leading-[0.88] tracking-tight">
+            <h1 className="max-w-3xl font-display text-[clamp(2.6rem,12vw,8rem)] uppercase leading-[0.88] tracking-tight">
               Tu estilo.
               <br />
               <span className="text-white/40">Tu identidad.</span>
             </h1>
-            <p className="mt-8 max-w-md text-base leading-8 text-white/70 lg:text-lg">
+            <p className="mt-6 max-w-md text-sm leading-7 text-white/70 sm:mt-8 sm:text-base sm:leading-8 lg:text-lg">
               Una experiencia de precisión, carácter y calma. Reserva tu cita en segundos y déjate cuidar por profesionales.
             </p>
-            <div className="mt-10 flex flex-wrap gap-4">
+            <div className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:gap-4">
               <Link
                 to="/reservar"
-                className="inline-flex items-center gap-3 bg-accent px-7 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-ink transition-opacity hover:opacity-90"
+                className="inline-flex items-center justify-center gap-3 bg-accent px-7 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-ink transition-opacity hover:opacity-90"
               >
                 Reservar cita <ArrowUpRight size={16} />
               </Link>
               <Link
                 to="/servicios"
-                className="inline-flex items-center gap-3 border border-white/25 px-7 py-4 text-xs uppercase tracking-[0.16em] transition-colors hover:border-accent hover:text-accent"
+                className="inline-flex items-center justify-center gap-3 border border-white/25 px-7 py-4 text-xs uppercase tracking-[0.16em] transition-colors hover:border-accent hover:text-accent"
               >
                 Ver servicios
               </Link>
             </div>
           </div>
-
         </div>
       </section>
 

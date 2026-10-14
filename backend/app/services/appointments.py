@@ -1,8 +1,15 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import is_barber_role, is_shop_manager
-from app.models.models import Appointment, Service, User
+from app.core.security import is_barber_role, is_limited_barber, is_shop_manager
+from app.models.models import Appointment, AppointmentStatus, Service, User
+from app.services.booking import BOOKING_TIMEZONE
+
+
+def _shop_now() -> datetime:
+    return datetime.now(BOOKING_TIMEZONE)
 
 
 async def get_barber_appointments(db: AsyncSession, barber_id: int) -> list[dict[str, object]]:
@@ -15,12 +22,29 @@ async def get_barber_appointments(db: AsyncSession, barber_id: int) -> list[dict
     return [{**appointment.__dict__, "service_name": service_name} for appointment, service_name in rows.all()]
 
 
-async def get_all_appointments(db: AsyncSession) -> list[dict[str, object]]:
-    rows = await db.execute(
+async def get_all_appointments(
+    db: AsyncSession,
+    *,
+    view: str = "all",
+    barber_id: int | None = None,
+) -> list[dict[str, object]]:
+    query = (
         select(Appointment, Service.name)
         .join(Service, Service.id == Appointment.service_id)
         .order_by(Appointment.date, Appointment.start_time)
     )
+    if barber_id is not None:
+        query = query.where(Appointment.barber_id == barber_id)
+
+    if view == "today_upcoming":
+        now = _shop_now()
+        query = query.where(
+            Appointment.date == now.date(),
+            Appointment.start_time > now.time(),
+            Appointment.status != AppointmentStatus.cancelled.value,
+        )
+
+    rows = await db.execute(query)
     return [{**appointment.__dict__, "service_name": service_name} for appointment, service_name in rows.all()]
 
 
@@ -33,3 +57,9 @@ async def user_can_view_appointment(db: AsyncSession, user: User, appointment_id
     if is_barber_role(user) and user.barber_id == appointment.barber_id:
         return True
     return False
+
+
+def scoped_barber_id_for_user(user: User) -> int | None:
+    if is_limited_barber(user):
+        return user.barber_id
+    return None

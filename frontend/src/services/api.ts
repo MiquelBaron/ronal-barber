@@ -11,6 +11,7 @@ import type {
   TelegramLink,
   TelegramStatus,
   SettingsResponse,
+  CronJob,
 } from "../types/api";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -42,12 +43,25 @@ export const api = {
   },
   deleteBarberPhoto: (id: number) => request<Barber>(`/api/barbers/${id}/photo`, { method: "DELETE" }),
   deleteBarber: (id: number) => request<void>(`/api/barbers/${id}`, { method: "DELETE" }),
-  getHours: () => request<BusinessHour[]>("/api/hours"),
-  replaceHours: (body: BusinessHour[]) => request<BusinessHour[]>("/api/hours", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  getHours: (barberId?: number) => {
+    const query = barberId ? `?barber_id=${barberId}` : "";
+    return request<BusinessHour[]>(`/api/hours${query}`);
+  },
+  replaceHours: (barberId: number, body: BusinessHour[]) =>
+    request<BusinessHour[]>(`/api/hours?barber_id=${barberId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body.map((item) => ({ ...item, barber_id: barberId }))),
+    }),
   getAvailability: (serviceId: number, date: string, barberId?: number) => {
     const query = new URLSearchParams({ service_id: String(serviceId), date });
     if (barberId) query.set("barber_id", String(barberId));
     return request<{ slots: string[] }>(`/api/availability?${query}`);
+  },
+  getStaffAvailability: (serviceId: number, date: string, barberId?: number) => {
+    const query = new URLSearchParams({ service_id: String(serviceId), date });
+    if (barberId) query.set("barber_id", String(barberId));
+    return request<{ slots: string[] }>(`/api/admin/availability?${query}`);
   },
   login: (email: string, password: string) =>
     request<{ id: number; email: string; role: string }>("/api/auth/login", {
@@ -59,7 +73,8 @@ export const api = {
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
   getUsers: () => request<{ id: number; email: string; role: string; barber_id?: number | null }[]>("/api/admin/users"),
   getMyAppointments: () => request<Appointment[]>("/api/appointments/mine"),
-  getAdminAppointments: () => request<AdminAppointment[]>("/api/admin/appointments"),
+  getAdminAppointments: (view: "today_upcoming" | "all" = "today_upcoming") =>
+    request<AdminAppointment[]>(`/api/admin/appointments?view=${view}`),
   updateAppointmentStatus: (id: number, value: string) => request<Appointment>(`/api/admin/appointments/${id}/status?new_status=${value}`, { method: "PATCH" }),
   createUser: (payload: { email: string; password: string; role: string; barber_id?: number | null }) =>
     request<{ id: number; email: string; role: string }>("/api/admin/users", {
@@ -120,4 +135,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ to }),
     }),
+  getAdminCrons: () => request<CronJob[]>("/api/admin/crons"),
+  updateAdminCron: (id: number, active: boolean) =>
+    request<CronJob>(`/api/admin/crons/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active }),
+    }),
+  runAdminCron: (id: number) =>
+    request<CronJob>(`/api/admin/crons/${id}/run`, { method: "POST" }),
 };

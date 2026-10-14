@@ -90,10 +90,12 @@ class CancelAppointmentIn(BaseModel):
 
 
 class HoursIn(BaseModel):
+    barber_id: int = Field(gt=0)
     day_of_week: int = Field(ge=0, le=6)
     start_time: time
     end_time: time
     active: bool = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginIn(BaseModel):
@@ -192,3 +194,27 @@ class SettingsUpdateIn(BaseModel):
 
 class TestEmailIn(BaseModel):
     to: EmailStr
+
+
+class CronJobOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    description: str
+    trigger_type: str
+    cron_hour: int | None = None
+    cron_minute: int | None = None
+    interval_minutes: int | None = None
+    active: bool
+    last_run_at: datetime | None = None
+    last_run_status: str
+    last_run_duration_ms: int | None = None
+    last_run_summary: str = ""
+    last_error: str = ""
+    next_run_at: datetime | None = None
+    run_count: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CronJobUpdateIn(BaseModel):
+    active: bool

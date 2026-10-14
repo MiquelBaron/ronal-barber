@@ -64,6 +64,7 @@ class Service(Base):
 class BusinessHours(Base):
     __tablename__ = "business_hours"
     id: Mapped[int] = mapped_column(primary_key=True)
+    barber_id: Mapped[int] = mapped_column(ForeignKey("barbers.id", ondelete="CASCADE"), index=True)
     day_of_week: Mapped[int] = mapped_column(Integer, index=True)
     start_time: Mapped[time] = mapped_column(Time)
     end_time: Mapped[time] = mapped_column(Time)
@@ -91,6 +92,7 @@ class Appointment(Base):
     cancel_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     confirmation_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    review_request_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -123,3 +125,34 @@ class DayOff(Base):
     end_date: Mapped[DateValue] = mapped_column(Date, index=True)
     reason: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CronJobStatus(StrEnum):
+    never = "never"
+    running = "running"
+    ok = "ok"
+    error = "error"
+
+
+class CronJob(Base):
+    """Registry of scheduled jobs (Odoo-like cron actions)."""
+
+    __tablename__ = "cron_jobs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    description: Mapped[str] = mapped_column(Text, default="")
+    trigger_type: Mapped[str] = mapped_column(String(20), default="interval")  # cron | interval
+    cron_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cron_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    interval_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_run_status: Mapped[str] = mapped_column(String(20), default=CronJobStatus.never.value)
+    last_run_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_run_summary: Mapped[str] = mapped_column(Text, default="")
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    run_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
