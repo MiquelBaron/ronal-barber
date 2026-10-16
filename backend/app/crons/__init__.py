@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from app.crons import reminder_daily, review_requests_hourly
+from app.crons import purge_past_appointments_weekly, reminder_daily, review_requests_hourly
 from app.crons.common import CronSpec, JobHandler, next_day_for_reminders, shop_now, shop_timezone
 
 CRON_SPECS: list[CronSpec] = [
     reminder_daily.SPEC,
     review_requests_hourly.SPEC,
+    purge_past_appointments_weekly.SPEC,
 ]
 
 CRON_SEED = [spec.seed_payload() for spec in CRON_SPECS]

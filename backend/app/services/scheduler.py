@@ -60,9 +60,17 @@ async def ensure_cron_jobs_seeded() -> None:
                 row.trigger_type = spec["trigger_type"]
                 if spec["trigger_type"] == "interval":
                     row.interval_minutes = spec.get("interval_minutes")
+                else:
+                    if spec.get("cron_minute") is not None:
+                        row.cron_minute = spec["cron_minute"]
+                    if spec.get("cron_day_of_week") is not None:
+                        row.cron_day_of_week = spec["cron_day_of_week"]
+                    if spec.get("cron_hour") is not None and row.code != "reminder_daily":
+                        row.cron_hour = spec["cron_hour"]
                 if row.code == "reminder_daily":
                     row.cron_hour = hour
                     row.cron_minute = spec.get("cron_minute") or 0
+                    row.cron_day_of_week = None
         await db.commit()
 
 
@@ -202,13 +210,16 @@ async def start_scheduler() -> None:
             if job.trigger_type == "cron":
                 hour = job.cron_hour if job.cron_hour is not None else settings.reminder_send_hour
                 minute = job.cron_minute if job.cron_minute is not None else 0
+                trigger_kwargs: dict[str, object] = {
+                    "hour": max(0, min(int(hour), 23)),
+                    "minute": max(0, min(int(minute), 59)),
+                    "timezone": timezone,
+                }
+                if job.cron_day_of_week is not None:
+                    trigger_kwargs["day_of_week"] = max(0, min(int(job.cron_day_of_week), 6))
                 scheduler.add_job(
                     _job_wrapper(job.code),
-                    CronTrigger(
-                        hour=max(0, min(int(hour), 23)),
-                        minute=max(0, min(int(minute), 59)),
-                        timezone=timezone,
-                    ),
+                    CronTrigger(**trigger_kwargs),
                     id=job.code,
                     replace_existing=True,
                 )

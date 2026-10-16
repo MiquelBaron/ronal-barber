@@ -331,16 +331,9 @@ async def create_appointment(
     return item, service, selected
 
 
-async def cancel_appointment_by_token(db: AsyncSession, token: str) -> tuple[Appointment, Service, Barber | None]:
-    appointment = await db.scalar(select(Appointment).where(Appointment.cancel_token == token))
-    if appointment is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Appointment not found")
-
+async def _cancel_appointment(db: AsyncSession, appointment: Appointment) -> tuple[Appointment, Service, Barber | None]:
     if appointment.status == AppointmentStatus.cancelled.value:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Appointment already cancelled")
-
-    if appointment.cancel_token_expires_at and datetime.utcnow() > appointment.cancel_token_expires_at:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cancellation link has expired")
 
     appointment.status = AppointmentStatus.cancelled.value
     await db.commit()
@@ -349,6 +342,24 @@ async def cancel_appointment_by_token(db: AsyncSession, token: str) -> tuple[App
     service = await db.get(Service, appointment.service_id)
     barber = await db.get(Barber, appointment.barber_id) if appointment.barber_id else None
     return appointment, service, barber
+
+
+async def cancel_appointment_by_token(db: AsyncSession, token: str) -> tuple[Appointment, Service, Barber | None]:
+    appointment = await db.scalar(select(Appointment).where(Appointment.cancel_token == token))
+    if appointment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Appointment not found")
+
+    if appointment.cancel_token_expires_at and datetime.utcnow() > appointment.cancel_token_expires_at:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cancellation link has expired")
+
+    return await _cancel_appointment(db, appointment)
+
+
+async def cancel_appointment_by_id(db: AsyncSession, appointment_id: int) -> tuple[Appointment, Service, Barber | None]:
+    appointment = await db.get(Appointment, appointment_id)
+    if appointment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Appointment not found")
+    return await _cancel_appointment(db, appointment)
 
 
 async def get_appointment_by_token(db: AsyncSession, token: str) -> dict[str, object]:

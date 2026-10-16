@@ -63,6 +63,7 @@ export type Appointment = {
   customer_phone: string;
   service_name: string;
   status: string;
+  barber_name: string | null;
 };
 
 export type AdminAppointment = Appointment & { payment_status: string };
@@ -126,6 +127,7 @@ export type CronJob = {
   trigger_type: string;
   cron_hour: number | null;
   cron_minute: number | null;
+  cron_day_of_week: number | null;
   interval_minutes: number | null;
   active: boolean;
   last_run_at: string | null;

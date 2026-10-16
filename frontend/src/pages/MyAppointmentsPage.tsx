@@ -123,7 +123,9 @@ export function MyAppointmentsPage() {
                           {appointment.customer_phone} · {appointment.customer_email}
                         </p>
                       </div>
-                      <span className="text-sm uppercase text-black/55">{appointment.status}</span>
+                      <span className="text-sm uppercase text-black/55">
+                        {appointment.status === "cancelled" ? "Cancelada" : "Confirmada"}
+                      </span>
                     </article>
                   ))}
                 </div>

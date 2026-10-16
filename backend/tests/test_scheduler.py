@@ -260,6 +260,65 @@ async def test_send_review_requests_skips_without_url(db_session: AsyncSession, 
 
 
 @pytest.mark.asyncio
+async def test_purge_past_appointments_deletes_before_today(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.crons.purge_past_appointments_weekly import run as purge_past
+
+    @asynccontextmanager
+    async def mock_session_local():
+        yield db_session
+
+    monkeypatch.setattr("app.crons.purge_past_appointments_weekly.SessionLocal", mock_session_local)
+    monkeypatch.setattr(
+        "app.crons.purge_past_appointments_weekly.shop_now",
+        lambda: datetime(2026, 10, 16, 10, 0, tzinfo=ZoneInfo("Europe/Madrid")),  # Friday
+    )
+
+    service = await db_session.get(Service, 1)
+    assert service is not None
+    db_session.add_all(
+        [
+            Appointment(
+                service_id=service.id,
+                barber_id=1,
+                customer_name="Old",
+                customer_surname="One",
+                customer_phone="600000001",
+                customer_email="old@example.com",
+                date=date(2026, 10, 15),
+                start_time=time(10, 0),
+                end_time=time(10, 40),
+                price=Decimal("20.00"),
+                cancel_token="token-old",
+            ),
+            Appointment(
+                service_id=service.id,
+                barber_id=1,
+                customer_name="Today",
+                customer_surname="Keep",
+                customer_phone="600000002",
+                customer_email="today@example.com",
+                date=date(2026, 10, 16),
+                start_time=time(11, 0),
+                end_time=time(11, 40),
+                price=Decimal("20.00"),
+                cancel_token="token-today",
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    summary = await purge_past()
+    assert "1" in summary
+
+    remaining = list((await db_session.scalars(select(Appointment))).all())
+    assert len(remaining) == 1
+    assert remaining[0].date == date(2026, 10, 16)
+
+
+@pytest.mark.asyncio
 async def test_execute_cron_job_records_ok_status(db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
     @asynccontextmanager
     async def mock_session_local():

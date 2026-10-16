@@ -22,6 +22,8 @@ COMMON_PATCHES: list[str] = [
     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMP",
     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS review_request_sent_at TIMESTAMP",
     "CREATE INDEX IF NOT EXISTS ix_appointments_cancel_token ON appointments (cancel_token)",
+    # appointments — only confirmed | cancelled
+    "UPDATE appointments SET status = 'confirmed' WHERE status IN ('pending', 'completed')",
     # system settings
     """
     CREATE TABLE IF NOT EXISTS system_settings (
@@ -48,6 +50,7 @@ POSTGRES_PATCHES: list[str] = [
         trigger_type VARCHAR(20) NOT NULL DEFAULT 'interval',
         cron_hour INTEGER,
         cron_minute INTEGER,
+        cron_day_of_week INTEGER,
         interval_minutes INTEGER,
         active BOOLEAN NOT NULL DEFAULT TRUE,
         last_run_at TIMESTAMP,
@@ -62,6 +65,7 @@ POSTGRES_PATCHES: list[str] = [
     )
     """,
     "CREATE UNIQUE INDEX IF NOT EXISTS ix_cron_jobs_code ON cron_jobs (code)",
+    "ALTER TABLE cron_jobs ADD COLUMN IF NOT EXISTS cron_day_of_week INTEGER",
     # business_hours — per-barber schedules (backfill then enforce NOT NULL)
     "ALTER TABLE business_hours ADD COLUMN IF NOT EXISTS barber_id INTEGER REFERENCES barbers(id) ON DELETE CASCADE",
     """

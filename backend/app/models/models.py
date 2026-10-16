@@ -11,10 +11,8 @@ class Base(DeclarativeBase):
 
 
 class AppointmentStatus(StrEnum):
-    pending = "pending"
     confirmed = "confirmed"
     cancelled = "cancelled"
-    completed = "completed"
 
 
 class PaymentStatus(StrEnum):
@@ -145,6 +143,7 @@ class CronJob(Base):
     trigger_type: Mapped[str] = mapped_column(String(20), default="interval")  # cron | interval
     cron_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cron_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cron_day_of_week: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0=Mon … 6=Sun
     interval_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

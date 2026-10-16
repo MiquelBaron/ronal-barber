@@ -10,6 +10,7 @@ import { useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
 import type { Appointment, Barber } from "../types/api";
 import { upcomingTodayAppointments } from "../utils/appointments";
+import { appointmentStatusLabel } from "../utils/status";
 
 type Tab = "agenda" | "nueva" | "telegram";
 
@@ -18,8 +19,10 @@ export function BarberAgendaPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [error, setError] = useState("");
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>("agenda");
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [addingForSelectedDay, setAddingForSelectedDay] = useState(false);
 
   const loadAppointments = useCallback(() => {
     api.getMyAppointments().then(setAppointments).catch(() => setError("No se han podido cargar tus citas."));
@@ -34,9 +37,32 @@ export function BarberAgendaPage() {
       .catch(() => setError("No se han podido cargar tus citas."));
   }, []);
 
-  const dateAppointments = appointments.filter(
-    (appointment) => appointment.date === selectedDate.toISOString().slice(0, 10),
-  );
+  async function cancelAppointment(id: number) {
+    if (!window.confirm("¿Cancelar esta cita? Se avisará al cliente por email y al barbero por Telegram.")) {
+      return;
+    }
+    setCancellingId(id);
+    setError("");
+    try {
+      const updated = await api.cancelAdminAppointment(id);
+      setAppointments((current) =>
+        current.map((item) => (item.id === updated.id ? { ...item, status: updated.status } : item)),
+      );
+    } catch {
+      setError("No se ha podido cancelar la cita.");
+    } finally {
+      setCancellingId(null);
+    }
+  }
+
+  const selectedDateIso = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const day = String(selectedDate.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, [selectedDate]);
+
+  const dateAppointments = appointments.filter((appointment) => appointment.date === selectedDateIso);
   const appointmentDates = new Set(appointments.map((appointment) => appointment.date));
   const upcomingToday = useMemo(() => upcomingTodayAppointments(appointments), [appointments]);
 
@@ -77,7 +103,18 @@ export function BarberAgendaPage() {
                     {appointment.customer_name} {appointment.customer_surname}
                   </p>
                 </div>
-                <span className="text-[10px] uppercase tracking-[0.12em] text-black/40">{appointment.status}</span>
+                {appointment.status === "cancelled" ? (
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-black/40">Cancelada</span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={cancellingId === appointment.id}
+                    onClick={() => cancelAppointment(appointment.id)}
+                    className="border border-red-700/30 px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-red-800 hover:bg-red-50 disabled:opacity-40"
+                  >
+                    {cancellingId === appointment.id ? "…" : "Cancelar"}
+                  </button>
+                )}
               </article>
             ))}
           </div>
@@ -106,21 +143,47 @@ export function BarberAgendaPage() {
             <Calendar
               onChange={(value) => {
                 const date = Array.isArray(value) ? value[0] : value;
-                if (date instanceof Date) setSelectedDate(date);
+                if (date instanceof Date) {
+                  setSelectedDate(date);
+                  setAddingForSelectedDay(false);
+                }
               }}
               value={selectedDate}
               tileClassName={({ date }) =>
-                appointmentDates.has(date.toISOString().slice(0, 10)) ? "has-appointment" : undefined
+                appointmentDates.has(
+                  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
+                )
+                  ? "has-appointment"
+                  : undefined
               }
             />
           </div>
           <div className="rounded-sm border border-black/10 bg-white/70 p-6 shadow-sm">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-black/45">
-              {selectedDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-            </p>
-            <h2 className="mt-3 font-display text-3xl uppercase">Citas del día</h2>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-black/45">
+                  {selectedDate.toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+                <h2 className="mt-3 font-display text-3xl uppercase">Citas del día</h2>
+              </div>
+              {!addingForSelectedDay && (
+                <button
+                  type="button"
+                  onClick={() => setAddingForSelectedDay(true)}
+                  className="inline-flex items-center gap-2 border border-black/15 bg-white px-4 py-2.5 text-xs uppercase tracking-[0.14em] hover:border-accent"
+                >
+                  <CalendarPlus size={14} />
+                  Añadir cita este día
+                </button>
+              )}
+            </div>
             {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
-            {dateAppointments.length === 0 ? (
+            {dateAppointments.length === 0 && !addingForSelectedDay ? (
               <p className="mt-8 text-sm text-black/50">No hay citas para este día.</p>
             ) : (
               <div className="mt-6 divide-y divide-black/10">
@@ -136,11 +199,42 @@ export function BarberAgendaPage() {
                         {appointment.customer_phone} · {appointment.customer_email}
                       </p>
                     </div>
-                    <span className="self-start rounded-sm bg-black/5 px-3 py-1 text-[10px] uppercase tracking-[0.12em]">
-                      {appointment.status}
-                    </span>
+                    {appointment.status === "cancelled" ? (
+                      <span className="self-start rounded-sm bg-black/5 px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-black/45">
+                        {appointmentStatusLabel(appointment.status)}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={cancellingId === appointment.id}
+                        onClick={() => cancelAppointment(appointment.id)}
+                        className="self-start border border-red-700/30 px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-red-800 hover:bg-red-50 disabled:opacity-40"
+                      >
+                        {cancellingId === appointment.id ? "…" : "Cancelar"}
+                      </button>
+                    )}
                   </article>
                 ))}
+              </div>
+            )}
+
+            {addingForSelectedDay && (
+              <div className="mt-8 border-t border-black/10 pt-6">
+                <p className="mb-4 text-[10px] uppercase tracking-[0.18em] text-black/45">
+                  Nueva cita · {selectedDateIso}
+                </p>
+                <ManualAppointmentForm
+                  key={`day-${selectedDateIso}-${user.barber_id ?? "x"}`}
+                  barbers={barbers}
+                  defaultBarberId={user.barber_id ?? undefined}
+                  defaultDate={selectedDateIso}
+                  isBarber
+                  onCancel={() => setAddingForSelectedDay(false)}
+                  onCreated={() => {
+                    loadAppointments();
+                    setAddingForSelectedDay(false);
+                  }}
+                />
               </div>
             )}
           </div>

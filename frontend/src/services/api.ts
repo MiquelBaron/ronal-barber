@@ -75,7 +75,8 @@ export const api = {
   getMyAppointments: () => request<Appointment[]>("/api/appointments/mine"),
   getAdminAppointments: (view: "today_upcoming" | "all" = "today_upcoming") =>
     request<AdminAppointment[]>(`/api/admin/appointments?view=${view}`),
-  updateAppointmentStatus: (id: number, value: string) => request<Appointment>(`/api/admin/appointments/${id}/status?new_status=${value}`, { method: "PATCH" }),
+  cancelAdminAppointment: (id: number) =>
+    request<Appointment>(`/api/admin/appointments/${id}/cancel`, { method: "POST" }),
   createUser: (payload: { email: string; password: string; role: string; barber_id?: number | null }) =>
     request<{ id: number; email: string; role: string }>("/api/admin/users", {
       method: "POST",

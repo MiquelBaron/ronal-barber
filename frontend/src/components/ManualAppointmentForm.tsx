@@ -7,20 +7,40 @@ import { defaultServiceId } from "../utils/services";
 type Props = {
   barbers: Barber[];
   defaultBarberId?: number;
+  defaultDate?: string;
   isBarber?: boolean;
   onCreated?: () => void;
+  onCancel?: () => void;
 };
 
-export function ManualAppointmentForm({ barbers, defaultBarberId, isBarber = false, onCreated }: Props) {
+export function ManualAppointmentForm({
+  barbers,
+  defaultBarberId,
+  defaultDate = "",
+  isBarber = false,
+  onCreated,
+  onCancel,
+}: Props) {
   const [services, setServices] = useState<Service[]>([]);
   const [serviceId, setServiceId] = useState("");
   const [barberId, setBarberId] = useState(defaultBarberId ? String(defaultBarberId) : "");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(defaultDate);
   const [slots, setSlots] = useState<string[]>([]);
   const [slot, setSlot] = useState("");
   const [sendEmail, setSendEmail] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (defaultBarberId) setBarberId(String(defaultBarberId));
+  }, [defaultBarberId]);
+
+  useEffect(() => {
+    if (defaultDate) {
+      setDate(defaultDate);
+      setSlot("");
+    }
+  }, [defaultDate]);
 
   useEffect(() => {
     api
@@ -33,7 +53,11 @@ export function ManualAppointmentForm({ barbers, defaultBarberId, isBarber = fal
   }, []);
 
   useEffect(() => {
-    if (!serviceId || !date) return;
+    if (!serviceId || !date) {
+      setSlots([]);
+      return;
+    }
+    setSlot("");
     api
       .getStaffAvailability(Number(serviceId), date, barberId ? Number(barberId) : undefined)
       .then(({ slots: loaded }) => setSlots(loaded))
@@ -128,11 +152,26 @@ export function ManualAppointmentForm({ barbers, defaultBarberId, isBarber = fal
         Enviar email de confirmación al cliente
       </label>
 
+      {date && !error && slots.length === 0 && (
+        <p className="text-sm text-black/45">No hay horas libres para este día.</p>
+      )}
+
       {error && <p className="text-sm text-red-700">{error}</p>}
 
-      <button type="submit" disabled={!slot} className="bg-ink px-6 py-3 text-xs uppercase tracking-[0.15em] text-paper disabled:opacity-40">
-        Crear cita
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button type="submit" disabled={!slot} className="bg-ink px-6 py-3 text-xs uppercase tracking-[0.15em] text-paper disabled:opacity-40">
+          Crear cita
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="border border-black/20 px-6 py-3 text-xs uppercase tracking-[0.15em] text-black/60 hover:border-black/40"
+          >
+            Cerrar
+          </button>
+        )}
+      </div>
     </form>
   );
 }

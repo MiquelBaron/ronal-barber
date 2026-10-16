@@ -28,7 +28,7 @@ async def run() -> str:
         rows = await db.execute(
             select(Appointment).where(
                 Appointment.date == target_date,
-                Appointment.status.in_([AppointmentStatus.confirmed.value, AppointmentStatus.pending.value]),
+                Appointment.status == AppointmentStatus.confirmed.value,
                 Appointment.reminder_sent_at.is_(None),
             )
         )

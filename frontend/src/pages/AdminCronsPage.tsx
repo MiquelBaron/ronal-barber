@@ -18,11 +18,17 @@ function formatWhen(value: string | null): string {
   });
 }
 
+const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
 function scheduleLabel(job: CronJob): string {
   if (job.trigger_type === "cron") {
     const hour = String(job.cron_hour ?? 0).padStart(2, "0");
     const minute = String(job.cron_minute ?? 0).padStart(2, "0");
-    return `Diario ${hour}:${minute}`;
+    const time = `${hour}:${minute}`;
+    if (job.cron_day_of_week != null && job.cron_day_of_week >= 0 && job.cron_day_of_week <= 6) {
+      return `${WEEKDAY_LABELS[job.cron_day_of_week]} ${time}`;
+    }
+    return `Diario ${time}`;
   }
   return `Cada ${job.interval_minutes ?? "?"} min`;
 }

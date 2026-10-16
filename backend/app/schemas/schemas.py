@@ -124,6 +124,7 @@ class MyAppointmentOut(AppointmentOut):
     customer_surname: str
     customer_phone: str
     service_name: str
+    barber_name: str | None = None
 
 
 class AdminAppointmentOut(MyAppointmentOut):
@@ -204,6 +205,7 @@ class CronJobOut(BaseModel):
     trigger_type: str
     cron_hour: int | None = None
     cron_minute: int | None = None
+    cron_day_of_week: int | None = None
     interval_minutes: int | None = None
     active: bool
     last_run_at: datetime | None = None

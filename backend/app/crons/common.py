@@ -25,6 +25,7 @@ class CronSpec:
     run: JobHandler
     cron_hour: int | None = None
     cron_minute: int | None = None
+    cron_day_of_week: int | None = None  # 0=Mon … 6=Sun; None = every day
     interval_minutes: int | None = None
 
     def seed_payload(self) -> dict[str, Any]:
@@ -35,6 +36,7 @@ class CronSpec:
             "trigger_type": self.trigger_type,
             "cron_hour": self.cron_hour,
             "cron_minute": self.cron_minute,
+            "cron_day_of_week": self.cron_day_of_week,
             "interval_minutes": self.interval_minutes,
         }
 

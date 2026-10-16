@@ -144,22 +144,21 @@ async def admin_appointments(
     )
 
 
-@router.patch("/admin/appointments/{appointment_id}/status", response_model=AppointmentOut)
-async def update_appointment_status(
+@router.post("/admin/appointments/{appointment_id}/cancel", response_model=AppointmentOut)
+async def admin_cancel_appointment(
     appointment_id: int,
-    new_status: str = Query(..., pattern="^(pending|confirmed|cancelled|completed)$"),
     user: User = Depends(require_admin_or_barber),
     db: AsyncSession = Depends(get_db),
 ) -> Appointment:
     item = await db.get(Appointment, appointment_id)
     if item is None:
-        raise HTTPException(404, "Appointment not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Appointment not found")
     if is_limited_barber(user) and item.barber_id != user.barber_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Access denied")
-    item.status = new_status
-    await db.commit()
-    await db.refresh(item)
-    return item
+
+    appointment, service, barber = await booking_service.cancel_appointment_by_id(db, appointment_id)
+    await notifications_service.on_appointment_cancelled(db, appointment, service, barber)
+    return appointment
 
 
 @router.get("/health", tags=["system"])
