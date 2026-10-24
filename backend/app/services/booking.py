@@ -317,7 +317,6 @@ async def create_appointment(
         start_time=start_time,
         end_time=end_time,
         price=Decimal(service.price),
-        payment_reference=f"mock_{uuid4().hex[:12]}",
         cancel_token=cancel_token,
         cancel_token_expires_at=appointment_datetime,
     )

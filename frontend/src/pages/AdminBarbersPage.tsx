@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Navigate } from "react-router-dom";
 
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { useStaff } from "../contexts/StaffContext";
@@ -16,7 +17,7 @@ const empty: BarberForm = {
 };
 
 export function AdminBarbersPage() {
-  const { canEdit } = useStaff();
+  const { canEdit, isLimitedBarber } = useStaff();
   const [items, setItems] = useState<Barber[]>([]);
   const [form, setForm] = useState<BarberForm>(empty);
   const [editing, setEditing] = useState<number | null>(null);
@@ -26,13 +27,18 @@ export function AdminBarbersPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (isLimitedBarber) return;
     api
       .getBarbers(true)
       .then(setItems)
       .catch(() => {
         setError("No se han podido cargar los barberos.");
       });
-  }, []);
+  }, [isLimitedBarber]);
+
+  if (isLimitedBarber) {
+    return <Navigate to="/admin/agenda" replace />;
+  }
 
   useEffect(() => {
     if (!pendingFile) return;

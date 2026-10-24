@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { StaffPageHeader } from "../components/StaffPageHeader";
-import { staffRoleLabel, useStaff } from "../contexts/StaffContext";
+import { staffHomePath, staffRoleLabel, useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
 import type { Barber } from "../types/api";
 
@@ -31,7 +31,7 @@ export function AdminLoginPage() {
         String(form.get("password")),
       );
 
-      navigate(user.role === "admin" ? "/admin" : "/admin/appointments");
+      navigate(staffHomePath(user.role));
     } catch {
       setError("Credenciales no válidas.");
     }
@@ -127,7 +127,7 @@ export function AdminLoginPage() {
 }
 
 function AdminDashboard() {
-  const { isAdmin } = useStaff();
+  const { isAdmin, user } = useStaff();
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
 
@@ -139,13 +139,13 @@ function AdminDashboard() {
       .catch(() => navigate("/admin/login"));
   }, [isAdmin, navigate]);
 
-  if (!isAdmin) return <Navigate to="/admin/appointments" replace />;
+  if (!isAdmin) return <Navigate to={staffHomePath(user.role)} replace />;
 
   const cards = [
     { to: "/admin/appointments", label: "Citas", hint: "Agenda completa" },
     { to: "/admin/services", label: "Servicios", hint: "Catálogo" },
     { to: "/admin/crons", label: "Crons", hint: "Jobs y estado" },
-    { to: "/admin/settings", label: "Configuración", hint: "SMTP, Telegram" },
+    { to: "/admin/settings", label: "Ajustes", hint: "SMTP, Telegram" },
   ];
 
   return (
@@ -190,14 +190,20 @@ export function AdminPage() {
 }
 
 function AdminUsersSection() {
-  const { isAdmin } = useStaff();
+  const { isAdmin, user: currentUser } = useStaff();
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [role, setRole] = useState("admin");
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editRole, setEditRole] = useState("admin");
+  const [editBarberId, setEditBarberId] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const needsBarber = BARBER_ROLES.has(role);
+  const editNeedsBarber = BARBER_ROLES.has(editRole);
   const barberNameById = Object.fromEntries(barbers.map((barber) => [barber.id, barber.name]));
 
   useEffect(() => {
@@ -210,12 +216,48 @@ function AdminUsersSection() {
       .catch(() => navigate("/admin/login"));
   }, [isAdmin, navigate]);
 
-  if (!isAdmin) return <Navigate to="/admin/appointments" replace />;
+  if (!isAdmin) return <Navigate to={staffHomePath(currentUser.role)} replace />;
+
+  function startEdit(item: User) {
+    setEditingId(item.id);
+    setEditRole(item.role);
+    setEditBarberId(item.barber_id ? String(item.barber_id) : "");
+    setEditPassword("");
+    setError("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditPassword("");
+  }
+
+  async function saveEdit(id: number) {
+    if (editNeedsBarber && !editBarberId) {
+      setError("Selecciona el barbero al que vincular este usuario.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api.updateUser(id, {
+        role: editRole,
+        barber_id: editNeedsBarber ? Number(editBarberId) : null,
+        ...(editPassword.trim() ? { password: editPassword.trim() } : {}),
+      });
+      setUsers((current) => current.map((item) => (item.id === id ? { ...item, ...updated } : item)));
+      cancelEdit();
+    } catch {
+      setError("No se puede actualizar el usuario. Revisa el rol y el barbero vinculado.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function remove(id: number) {
     try {
       await api.deleteUser(id);
-      setUsers(users.filter((user) => user.id !== id));
+      setUsers(users.filter((item) => item.id !== id));
+      if (editingId === id) cancelEdit();
     } catch {
       setError("No se puede eliminar este usuario.");
     }
@@ -234,13 +276,13 @@ function AdminUsersSection() {
     }
 
     try {
-      const user = await api.createUser({
+      const created = await api.createUser({
         email: String(form.get("email")),
         password: String(form.get("password")),
         role: selectedRole,
         barber_id: BARBER_ROLES.has(selectedRole) ? barberId : null,
       });
-      setUsers([...users, user]);
+      setUsers([...users, created]);
       event.currentTarget.reset();
       setRole("admin");
       setError("");
@@ -299,16 +341,98 @@ function AdminUsersSection() {
         </p>
       )}
       <div className="divide-y divide-black/10 rounded-sm border border-black/10 bg-white shadow-sm">
-        {users.map((user) => (
-          <div key={user.id} className="flex items-center justify-between px-6 py-5">
-            <div>
-              <p className="text-sm">{user.email}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-black/40">
-                {staffRoleLabel(user.role)}
-                {user.barber_id ? ` · ${barberNameById[user.barber_id] ?? `Barbero #${user.barber_id}`}` : ""}
-              </p>
-            </div>
-            <button onClick={() => remove(user.id)} className="text-[10px] uppercase tracking-[0.15em] text-red-700">Eliminar</button>
+        {users.map((item) => (
+          <div key={item.id} className="px-6 py-5">
+            {editingId === item.id ? (
+              <div className="grid gap-4">
+                <div>
+                  <p className="text-sm">{item.email}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-black/40">Editando</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <select
+                    value={editRole}
+                    onChange={(event) => setEditRole(event.target.value)}
+                    className="border-b border-black/20 bg-transparent py-2 text-sm"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="admin_barber">Barbero jefe</option>
+                    <option value="barber">Barbero</option>
+                  </select>
+                  {editNeedsBarber && (
+                    <select
+                      required
+                      value={editBarberId}
+                      onChange={(event) => setEditBarberId(event.target.value)}
+                      className="border-b border-black/20 bg-transparent py-2 text-sm"
+                    >
+                      <option value="" disabled>
+                        Vincular barbero…
+                      </option>
+                      {barbers.map((barber) => (
+                        <option key={barber.id} value={barber.id}>
+                          {barber.name}
+                          {!barber.active ? " (inactivo)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <input
+                    type="password"
+                    minLength={8}
+                    value={editPassword}
+                    onChange={(event) => setEditPassword(event.target.value)}
+                    placeholder="Nueva contraseña (opcional)"
+                    className="border-b border-black/20 bg-transparent py-2 text-sm"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => saveEdit(item.id)}
+                    className="bg-ink px-4 py-2 text-[10px] uppercase tracking-[0.15em] text-paper disabled:opacity-50"
+                  >
+                    {saving ? "…" : "Guardar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="text-[10px] uppercase tracking-[0.15em] text-black/45"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm">{item.email}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-black/40">
+                    {staffRoleLabel(item.role)}
+                    {item.barber_id ? ` · ${barberNameById[item.barber_id] ?? `Barbero #${item.barber_id}`}` : ""}
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => startEdit(item)}
+                    className="text-[10px] uppercase tracking-[0.15em] text-black/55 hover:text-accent"
+                  >
+                    Editar
+                  </button>
+                  {item.id !== currentUser.id && (
+                    <button
+                      type="button"
+                      onClick={() => remove(item.id)}
+                      className="text-[10px] uppercase tracking-[0.15em] text-red-700"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "email"
 LOGO_PATH = TEMPLATE_DIR / "assets" / "logo_ronal.png"
 LOGO_CID = "logo"
+SHOP_NAME = "RONAL BARBER 504"
 env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape(["html", "xml"]))
 
 
@@ -29,7 +30,7 @@ def _format_time(value: time) -> str:
 
 def _render(template_name: str, **context: object) -> tuple[str, str]:
     settings = get_runtime_settings()
-    context.setdefault("shop_name", settings.app_name)
+    context.setdefault("shop_name", SHOP_NAME)
     context.setdefault("public_base_url", settings.public_base_url)
     context.setdefault("logo_cid", LOGO_CID if LOGO_PATH.is_file() else None)
     html = env.get_template(f"{template_name}.html").render(**context)
@@ -83,10 +84,9 @@ def _cancel_url(token: str) -> str:
 
 
 async def send_test_email(to: str) -> bool:
-    settings = get_runtime_settings()
-    html = f"<p>Email de prueba desde <strong>{settings.app_name}</strong>.</p><p>SMTP configurado correctamente.</p>"
-    text = f"Email de prueba desde {settings.app_name}. SMTP configurado correctamente."
-    return await _send_email(to, f"Prueba SMTP — {settings.app_name}", html, text)
+    html = f"<p>Email de prueba desde <strong>{SHOP_NAME}</strong>.</p><p>SMTP configurado correctamente.</p>"
+    text = f"Email de prueba desde {SHOP_NAME}. SMTP configurado correctamente."
+    return await _send_email(to, f"Prueba SMTP — {SHOP_NAME}", html, text)
 
 
 async def send_booking_confirmation(
@@ -110,7 +110,7 @@ async def send_booking_confirmation(
     )
     return await _send_email(
         appointment.customer_email,
-        f"Confirmación de cita — Ronal Barber",
+        f"Confirmación de cita — {SHOP_NAME}",
         html,
         text,
     )
@@ -126,7 +126,7 @@ async def send_cancellation_confirmation(appointment: Appointment, service: Serv
     )
     return await _send_email(
         appointment.customer_email,
-        f"Cita cancelada — Ronal Barber",
+        f"Cita cancelada — {SHOP_NAME}",
         html,
         text,
     )
@@ -140,7 +140,6 @@ async def send_reminder_24h(
     if not appointment.cancel_token:
         return False
 
-    settings = get_runtime_settings()
     html, text = _render(
         "reminder_24h",
         customer_name=appointment.customer_name,
@@ -152,7 +151,7 @@ async def send_reminder_24h(
     )
     return await _send_email(
         appointment.customer_email,
-        f"Recordatorio: tu cita mañana — {settings.app_name}",
+        f"Recordatorio: tu cita mañana — {SHOP_NAME}",
         html,
         text,
     )
@@ -180,7 +179,7 @@ async def send_review_request(
     )
     return await _send_email(
         appointment.customer_email,
-        f"¿Cómo fue tu visita? — {settings.app_name}",
+        f"¿Cómo fue tu visita? — {SHOP_NAME}",
         html,
         text,
     )

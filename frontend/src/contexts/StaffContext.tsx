@@ -10,6 +10,7 @@ export type StaffUser = {
 
 type StaffContextValue = {
   user: StaffUser;
+  setUser: (user: StaffUser) => void;
   isAdmin: boolean;
   isAdminBarber: boolean;
   isBarberStaff: boolean;
@@ -21,9 +22,11 @@ const StaffContext = createContext<StaffContextValue | null>(null);
 
 export function StaffProvider({
   user,
+  setUser,
   children,
 }: {
   user: StaffUser;
+  setUser: (user: StaffUser) => void;
   children: React.ReactNode;
 }) {
   const isAdmin = user.role === "admin";
@@ -34,7 +37,7 @@ export function StaffProvider({
 
   return (
     <StaffContext.Provider
-      value={{ user, isAdmin, isAdminBarber, isBarberStaff, isLimitedBarber, canEdit }}
+      value={{ user, setUser, isAdmin, isAdminBarber, isBarberStaff, isLimitedBarber, canEdit }}
     >
       {children}
     </StaffContext.Provider>
@@ -58,6 +61,6 @@ export function staffRoleLabel(role: string): string {
 
 export function staffHomePath(role: string): string {
   if (role === "admin") return "/admin";
-  if (role === "barber") return "/admin/agenda";
-  return "/admin/appointments";
+  if (role === "barber" || role === "admin_barber") return "/admin/agenda";
+  return "/admin";
 }

@@ -66,7 +66,7 @@ export type Appointment = {
   barber_name: string | null;
 };
 
-export type AdminAppointment = Appointment & { payment_status: string };
+export type AdminAppointment = Appointment;
 
 export type AppointmentByToken = {
   date: string;
@@ -137,4 +137,51 @@ export type CronJob = {
   last_error: string;
   next_run_at: string | null;
   run_count: number;
+};
+
+export type ProfilingStatus = {
+  enabled: boolean;
+  started_at: string | null;
+  expires_at: string | null;
+  auto_stop_minutes: number;
+  runs_count: number;
+};
+
+export type ProfilingStackFrame = {
+  file: string;
+  function: string;
+  line: number;
+  key: string;
+};
+
+export type ProfilingSqlQuery = {
+  statement: string;
+  duration_ms: number;
+  parameters: string;
+  owner_key: string;
+  stack: ProfilingStackFrame[];
+};
+
+export type ProfilingCpuFrame = {
+  function: string;
+  file: string;
+  line: number;
+  key: string;
+  time_ms: number;
+  self_ms: number;
+  is_application: boolean;
+  children: ProfilingCpuFrame[];
+};
+
+export type ProfilingRun = {
+  id: string;
+  method: string;
+  path: string;
+  status_code: number;
+  duration_ms: number;
+  created_at: string;
+  sql_count: number;
+  sql_total_ms: number;
+  queries: ProfilingSqlQuery[];
+  cpu_tree: ProfilingCpuFrame | null;
 };

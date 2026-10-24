@@ -1,4 +1,5 @@
 import {
+  Activity,
   Bell,
   Clock,
   Globe,
@@ -9,11 +10,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
-import type { SettingItem, SettingsResponse } from "../types/api";
+import type { ProfilingStatus, SettingItem, SettingsResponse } from "../types/api";
 
 const GROUP_ORDER = ["general", "security", "email", "telegram", "scheduler"];
 
@@ -34,6 +35,8 @@ export function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testEmail, setTestEmail] = useState("");
   const [activeGroup, setActiveGroup] = useState(GROUP_ORDER[0]);
+  const [profiling, setProfiling] = useState<ProfilingStatus | null>(null);
+  const [profilingBusy, setProfilingBusy] = useState(false);
 
   useEffect(() => {
     api
@@ -45,7 +48,27 @@ export function AdminSettingsPage() {
         setValues(initial);
       })
       .catch(() => setError("No se pudo cargar la configuración."));
+    api.getProfilingStatus().then(setProfiling).catch(() => undefined);
   }, []);
+
+  async function toggleProfiling() {
+    setProfilingBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      const next = profiling?.enabled ? await api.stopProfiling() : await api.startProfiling();
+      setProfiling(next);
+      setSuccess(
+        next.enabled
+          ? `Profiling activado. Se apaga solo en ${next.auto_stop_minutes} min.`
+          : "Profiling detenido.",
+      );
+    } catch {
+      setError("No se pudo cambiar el estado de profiling.");
+    } finally {
+      setProfilingBusy(false);
+    }
+  }
 
   const groupedItems = useMemo(() => {
     if (!data) return new Map<string, SettingItem[]>();
@@ -58,7 +81,7 @@ export function AdminSettingsPage() {
     return map;
   }, [data]);
 
-  if (!isAdmin) return <Navigate to="/admin/appointments" replace />;
+  if (!isAdmin) return <Navigate to="/admin" replace />;
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -149,7 +172,51 @@ export function AdminSettingsPage() {
         description="Parámetros en tiempo real. Cambia SMTP, Telegram, recordatorios y URLs sin redeploy."
       />
 
-      <p className="mb-8 rounded-sm border border-black/10 bg-white/60 px-4 py-3 text-xs text-black/50">{data.bootstrap_note}</p>
+      <p className="mb-6 rounded-sm border border-black/10 bg-white/60 px-4 py-3 text-xs text-black/50">{data.bootstrap_note}</p>
+
+      <div className="mb-8 rounded-sm border border-black/10 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <span className="rounded-sm border border-rose-100 bg-rose-50 p-3 text-rose-700">
+              <Activity size={20} />
+            </span>
+            <div>
+              <h2 className="font-display text-2xl uppercase">Profiling</h2>
+              <p className="mt-1 max-w-xl text-sm leading-6 text-black/55">
+                Captura CPU y SQL de cada petición API mientras está activo. Usa el panel o la web (no solo
+                Ajustes/Profiling). Se apaga solo a los {profiling?.auto_stop_minutes ?? 10} minutos.
+              </p>
+              <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-black/40">
+                Estado: {profiling?.enabled ? "Activo" : "Inactivo"}
+                {profiling?.enabled && profiling.expires_at
+                  ? ` · hasta ${new Date(profiling.expires_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`
+                  : ""}
+                {profiling ? ` · ${profiling.runs_count} capturas` : ""}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={profilingBusy || profiling == null}
+              onClick={toggleProfiling}
+              className={`inline-flex items-center gap-2 px-5 py-3 text-xs uppercase tracking-[0.14em] disabled:opacity-50 ${
+                profiling?.enabled
+                  ? "border border-red-700/30 text-red-800 hover:bg-red-50"
+                  : "bg-ink text-paper"
+              }`}
+            >
+              {profilingBusy ? "…" : profiling?.enabled ? "Detener" : "Activar"}
+            </button>
+            <Link
+              to="/admin/profiling"
+              className="inline-flex items-center gap-2 border border-black/15 px-5 py-3 text-xs uppercase tracking-[0.14em] hover:border-accent"
+            >
+              Ver capturas
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {error && <p className="mb-6 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       {success && <p className="mb-6 rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{success}</p>}

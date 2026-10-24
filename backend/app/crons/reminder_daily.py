@@ -22,6 +22,7 @@ async def run() -> str:
     settings = get_runtime_settings()
     target_date = next_day_for_reminders()
     sent_count = 0
+    failed_count = 0
     skipped = 0
 
     async with SessionLocal() as db:
@@ -43,12 +44,14 @@ async def run() -> str:
 
             sent = await email_service.send_reminder_24h(appointment, service, barber)
             if not sent:
-                skipped += 1
                 if not settings.email_enabled:
+                    skipped += 1
                     logger.debug(
                         "Reminder skipped for appointment %s: email disabled",
                         appointment.id,
                     )
+                else:
+                    failed_count += 1
                 continue
 
             appointment.reminder_sent_at = datetime.utcnow()
@@ -56,7 +59,10 @@ async def run() -> str:
             sent_count += 1
             logger.info("Reminder sent for appointment %s on %s", appointment.id, target_date)
 
-    return f"Recordatorios {target_date.isoformat()}: {sent_count} enviados, {skipped} omitidos"
+    return (
+        f"Recordatorios {target_date.isoformat()}: "
+        f"{sent_count} enviados, {failed_count} fallidos, {skipped} omitidos"
+    )
 
 
 SPEC = CronSpec(

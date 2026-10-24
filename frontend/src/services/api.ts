@@ -12,6 +12,8 @@ import type {
   TelegramStatus,
   SettingsResponse,
   CronJob,
+  ProfilingRun,
+  ProfilingStatus,
 } from "../types/api";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -43,6 +45,19 @@ export const api = {
   },
   deleteBarberPhoto: (id: number) => request<Barber>(`/api/barbers/${id}/photo`, { method: "DELETE" }),
   deleteBarber: (id: number) => request<void>(`/api/barbers/${id}`, { method: "DELETE" }),
+  getMyBarberProfile: () => request<Barber>("/api/barber/me"),
+  updateMyBarberProfile: (body: Pick<Barber, "name" | "description" | "specialties" | "active">) =>
+    request<Barber>("/api/barber/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  uploadMyBarberPhoto: (file: File) => {
+    const form = new FormData();
+    form.append("photo", file);
+    return request<Barber>("/api/barber/me/photo", { method: "POST", body: form });
+  },
+  deleteMyBarberPhoto: () => request<Barber>("/api/barber/me/photo", { method: "DELETE" }),
   getHours: (barberId?: number) => {
     const query = barberId ? `?barber_id=${barberId}` : "";
     return request<BusinessHour[]>(`/api/hours${query}`);
@@ -78,8 +93,17 @@ export const api = {
   cancelAdminAppointment: (id: number) =>
     request<Appointment>(`/api/admin/appointments/${id}/cancel`, { method: "POST" }),
   createUser: (payload: { email: string; password: string; role: string; barber_id?: number | null }) =>
-    request<{ id: number; email: string; role: string }>("/api/admin/users", {
+    request<{ id: number; email: string; role: string; barber_id?: number | null }>("/api/admin/users", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  updateUser: (
+    id: number,
+    payload: { role: string; barber_id?: number | null; password?: string },
+  ) =>
+    request<{ id: number; email: string; role: string; barber_id?: number | null }>(`/api/admin/users/${id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
@@ -145,4 +169,12 @@ export const api = {
     }),
   runAdminCron: (id: number) =>
     request<CronJob>(`/api/admin/crons/${id}/run`, { method: "POST" }),
+  getProfilingStatus: () => request<ProfilingStatus>("/api/admin/profiling/status"),
+  startProfiling: () => request<ProfilingStatus>("/api/admin/profiling/start", { method: "POST" }),
+  stopProfiling: () => request<ProfilingStatus>("/api/admin/profiling/stop", { method: "POST" }),
+  getProfilingRuns: () => request<ProfilingRun[]>("/api/admin/profiling/runs"),
+  getProfilingRunDetail: (id: string) => request<ProfilingRun>(`/api/admin/profiling/runs/${id}/detail`),
+  deleteProfilingRun: (id: string) =>
+    request<void>(`/api/admin/profiling/runs/${id}`, { method: "DELETE" }),
+  profilingRunHtmlUrl: (id: string) => `/api/admin/profiling/runs/${id}`,
 };

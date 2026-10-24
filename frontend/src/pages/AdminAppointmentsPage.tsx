@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { ManualAppointmentForm } from "../components/ManualAppointmentForm";
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { useStaff } from "../contexts/StaffContext";
@@ -9,7 +10,7 @@ import { appointmentStatusLabel } from "../utils/status";
 type AppointmentsView = "today_upcoming" | "all";
 
 export function AdminAppointmentsPage() {
-  const { isLimitedBarber, user } = useStaff();
+  const { isAdmin, isBarberStaff } = useStaff();
   const [items, setItems] = useState<AdminAppointment[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [error, setError] = useState("");
@@ -25,9 +26,17 @@ export function AdminAppointmentsPage() {
   }, [view]);
 
   useEffect(() => {
+    if (!isAdmin) return;
     load();
     api.getBarbers().then(setBarbers).catch(() => undefined);
-  }, [load]);
+  }, [load, isAdmin]);
+
+  if (isBarberStaff) {
+    return <Navigate to="/admin/agenda" replace />;
+  }
+  if (!isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
 
   async function cancelAppointment(id: number) {
     if (!window.confirm("¿Cancelar esta cita? Se avisará al cliente por email y al barbero por Telegram.")) {
@@ -98,8 +107,8 @@ export function AdminAppointmentsPage() {
         <div className="mb-10 max-w-xl rounded-sm border border-black/10 bg-white p-6 shadow-sm">
           <ManualAppointmentForm
             barbers={barbers}
-            defaultBarberId={isLimitedBarber ? user.barber_id ?? undefined : undefined}
-            isBarber={isLimitedBarber}
+            defaultBarberId={undefined}
+            isBarber={false}
             onCreated={() => {
               load();
               setShowForm(false);

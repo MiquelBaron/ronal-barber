@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { StaffPageHeader } from "../components/StaffPageHeader";
+import { ToastStack, type ToastMessage } from "../components/Toast";
 import { useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
 import type { CronJob } from "../types/api";
@@ -66,6 +67,15 @@ export function AdminCronsPage() {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const pushToast = useCallback((title: string, detail: string, tone: ToastMessage["tone"]) => {
+    setToasts((current) => [...current, { id: Date.now() + Math.random(), title, detail, tone }]);
+  }, []);
 
   const load = useCallback(() => {
     api
@@ -78,7 +88,7 @@ export function AdminCronsPage() {
     load();
   }, [load]);
 
-  if (!isAdmin) return <Navigate to="/admin/appointments" replace />;
+  if (!isAdmin) return <Navigate to="/admin" replace />;
 
   async function toggleActive(job: CronJob) {
     setBusyId(job.id);
@@ -99,8 +109,17 @@ export function AdminCronsPage() {
     try {
       const updated = await api.runAdminCron(job.id);
       setJobs((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      const failed = updated.last_run_status === "error";
+      pushToast(
+        failed ? `${job.name} · error` : `${job.name} · ok`,
+        failed
+          ? updated.last_error || updated.last_run_summary || "La ejecución falló."
+          : updated.last_run_summary || "Ejecución completada.",
+        failed ? "error" : "ok",
+      );
     } catch {
       setError("No se pudo ejecutar el cron.");
+      pushToast(job.name, "No se pudo ejecutar el cron.", "error");
     } finally {
       setBusyId(null);
     }
@@ -108,6 +127,7 @@ export function AdminCronsPage() {
 
   return (
     <section>
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
       <StaffPageHeader
         eyebrow="Sistema"
         title="Acciones planificadas"

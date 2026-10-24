@@ -28,6 +28,8 @@ async def run(reference: datetime | None = None) -> str:
     now = shop_now(reference)
     today = now.date()
     sent_count = 0
+    failed_count = 0
+    candidates = 0
 
     async with SessionLocal() as db:
         rows = await db.execute(
@@ -48,18 +50,21 @@ async def run(reference: datetime | None = None) -> str:
             if service is None:
                 continue
             barber = await db.get(Barber, appointment.barber_id) if appointment.barber_id else None
+            candidates += 1
 
             sent = await email_service.send_review_request(appointment, service, barber)
             if not sent:
+                failed_count += 1
                 continue
 
             appointment.review_request_sent_at = datetime.utcnow()
             await db.commit()
             sent_count += 1
             logger.info("Review request sent for appointment %s", appointment.id)
-            if sent_count == 0:
-                logger.info("No review requests to send.")
-    return f"Reseñas: {sent_count} enviadas"
+
+    if candidates == 0:
+        return "Reseñas: 0 candidatas (nada que enviar)"
+    return f"Reseñas: {sent_count} enviados, {failed_count} fallidos (de {candidates})"
 
 
 SPEC = CronSpec(

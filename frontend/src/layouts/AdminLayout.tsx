@@ -1,4 +1,5 @@
 import {
+  Activity,
   Calendar,
   CalendarDays,
   Clock,
@@ -23,19 +24,23 @@ type NavItem = {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   adminOnly?: boolean;
   barberOnly?: boolean;
+  /** Visible for admin + admin_barber (not limited barber). */
+  managerOnly?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
   { href: "/admin/agenda", label: "Mi agenda", icon: CalendarDays, barberOnly: true },
-  { href: "/admin/appointments", label: "Citas", icon: Calendar },
-  { href: "/admin/services", label: "Servicios", icon: Scissors },
-  { href: "/admin/barbers", label: "Barberos", icon: Users },
+  { href: "/admin/appointments", label: "Citas", icon: Calendar, adminOnly: true },
+  { href: "/admin/services", label: "Servicios", icon: Scissors, managerOnly: true },
+  { href: "/admin/barbers", label: "Barberos", icon: Users, managerOnly: true },
   { href: "/admin/hours", label: "Horarios", icon: Clock },
   { href: "/admin/days-off", label: "Días libres", icon: CalendarDays },
   { href: "/admin/users", label: "Usuarios", icon: UserSquare2, adminOnly: true },
   { href: "/admin/crons", label: "Crons", icon: Timer, adminOnly: true },
-  { href: "/admin/settings", label: "Configuración", icon: Settings, adminOnly: true },
+  { href: "/admin/profiling", label: "Profiling", icon: Activity, adminOnly: true },
+  { href: "/admin/profile", label: "Configuración", icon: Settings, barberOnly: true },
+  { href: "/admin/settings", label: "Ajustes", icon: Settings, adminOnly: true },
 ];
 
 function NavLinks({
@@ -106,15 +111,17 @@ export function AdminLayout() {
   }
 
   const isBarberStaff = user.role === "barber" || user.role === "admin_barber";
+  const isManager = user.role === "admin" || user.role === "admin_barber";
 
   const visibleNav = NAV_ITEMS.filter((item) => {
     if (item.adminOnly && user.role !== "admin") return false;
     if (item.barberOnly && !isBarberStaff) return false;
+    if (item.managerOnly && !isManager) return false;
     return true;
   });
 
   return (
-    <StaffProvider user={user}>
+    <StaffProvider user={user} setUser={setUser}>
       <div className="min-h-screen bg-[#eceae4] text-ink lg:flex">
         {/* Mobile top bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-black/10 bg-ink px-4 py-3 text-paper lg:hidden">

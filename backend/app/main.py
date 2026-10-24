@@ -10,7 +10,8 @@ from app.api.routes import router
 from app.core.config import get_settings
 from app.core.production import fail_startup, validate_production_settings
 from app.services.uploads import UPLOAD_ROOT, ensure_upload_dirs
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, engine
+from app.services import profiling as profiling_service
 from app.services.scheduler import apply_scheduler_settings, ensure_cron_jobs_seeded, stop_scheduler
 from app.services.settings_store import ensure_defaults_seeded, get_runtime_settings
 from app.services.telegram_logs import configure_telegram_error_logging
@@ -18,6 +19,11 @@ from app.telegram.bot import poll_telegram_updates
 
 logger = logging.getLogger(__name__)
 configure_telegram_error_logging()
+
+
+class ProfilingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        return await profiling_service.profile_request(request, call_next)
 
 
 class DynamicCORSMiddleware(BaseHTTPMiddleware):
@@ -62,6 +68,7 @@ async def lifespan(app: FastAPI):
         fail_startup(str(error))
 
     ensure_upload_dirs()
+    profiling_service.install_sql_listeners(engine.sync_engine)
     async with SessionLocal() as db:
         await ensure_defaults_seeded(db)
     configure_telegram_error_logging()
@@ -80,6 +87,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Ronal Barber API", version="0.3.0", lifespan=lifespan)
 
+# Outer middleware runs first on the way in; Profiling wraps the request after CORS preflight handling.
+app.add_middleware(ProfilingMiddleware)
 app.add_middleware(DynamicCORSMiddleware)
 app.include_router(router)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_ROOT)), name="uploads")

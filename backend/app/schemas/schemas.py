@@ -70,7 +70,6 @@ class AppointmentOut(BaseModel):
     end_time: time
     price: Decimal
     status: str
-    payment_status: str
     customer_email: EmailStr
     model_config = ConfigDict(from_attributes=True)
 
@@ -119,6 +118,12 @@ class UserIn(BaseModel):
     barber_id: int | None = Field(default=None, gt=0)
 
 
+class UserUpdateIn(BaseModel):
+    role: str = Field(pattern="^(admin|barber|admin_barber)$")
+    barber_id: int | None = Field(default=None, gt=0)
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class MyAppointmentOut(AppointmentOut):
     customer_name: str
     customer_surname: str
@@ -129,7 +134,6 @@ class MyAppointmentOut(AppointmentOut):
 
 class AdminAppointmentOut(MyAppointmentOut):
     barber_id: int | None
-    payment_status: str
 
 
 class DayOffIn(BaseModel):
@@ -220,3 +224,53 @@ class CronJobOut(BaseModel):
 
 class CronJobUpdateIn(BaseModel):
     active: bool
+
+
+class ProfilingStatusOut(BaseModel):
+    enabled: bool
+    started_at: str | None = None
+    expires_at: str | None = None
+    auto_stop_minutes: int = 10
+    runs_count: int = 0
+
+
+class ProfilingStackFrameOut(BaseModel):
+    file: str
+    function: str
+    line: int
+    key: str
+
+
+class ProfilingSqlQueryOut(BaseModel):
+    statement: str
+    duration_ms: float
+    parameters: str = ""
+    owner_key: str = ""
+    stack: list[ProfilingStackFrameOut] = []
+
+
+class ProfilingCpuFrameOut(BaseModel):
+    function: str
+    file: str
+    line: int = 0
+    key: str
+    time_ms: float
+    self_ms: float
+    is_application: bool = False
+    children: list["ProfilingCpuFrameOut"] = []
+
+
+class ProfilingRunOut(BaseModel):
+    id: str
+    method: str
+    path: str
+    status_code: int
+    duration_ms: int
+    created_at: str
+    sql_count: int = 0
+    sql_total_ms: float = 0.0
+    queries: list[ProfilingSqlQueryOut] = []
+    cpu_tree: ProfilingCpuFrameOut | None = None
+
+
+ProfilingCpuFrameOut.model_rebuild()

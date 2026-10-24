@@ -15,6 +15,8 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { AdminDaysOffPage } from "./pages/AdminsDaysOffPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminCronsPage } from "./pages/AdminCronsPage";
+import { AdminProfilingPage } from "./pages/AdminProfilingPage";
+import { BarberConfigPage } from "./pages/BarberConfigPage";
 import { CancelAppointmentPage } from "./pages/CancelAppointmentPage";
 import { BarberProfilePage } from "./pages/BarberProfilePage";
 import { api } from "./services/api";
@@ -49,7 +51,9 @@ function App() {
         <Route path="/admin/hours" element={<AdminHoursPage />} />
         <Route path="/admin/days-off" element={<AdminDaysOffPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
+        <Route path="/admin/profile" element={<BarberConfigPage />} />
         <Route path="/admin/crons" element={<AdminCronsPage />} />
+        <Route path="/admin/profiling" element={<AdminProfilingPage />} />
         <Route path="/admin/agenda" element={<BarberAgendaPage />} />
       </Route>
       <Route path="/mis-citas" element={<Navigate to="/admin/agenda" replace />} />

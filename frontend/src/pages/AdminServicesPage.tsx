@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Navigate } from "react-router-dom";
 
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { useStaff } from "../contexts/StaffContext";
@@ -15,20 +16,25 @@ const empty = {
 };
 
 export function AdminServicesPage() {
-  const { canEdit } = useStaff();
+  const { canEdit, isLimitedBarber } = useStaff();
   const [items, setItems] = useState<Service[]>([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (isLimitedBarber) return;
     api
       .getServices(true)
       .then(setItems)
       .catch(() => {
         setError("No se han podido cargar los servicios.");
       });
-  }, []);
+  }, [isLimitedBarber]);
+
+  if (isLimitedBarber) {
+    return <Navigate to="/admin/agenda" replace />;
+  }
 
   async function save(event: FormEvent) {
     event.preventDefault();

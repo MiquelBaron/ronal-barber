@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 UPLOAD_ROOT = Path(__file__).resolve().parent.parent.parent / "uploads"
 BARBER_UPLOAD_DIR = UPLOAD_ROOT / "barbers"
+PROFILES_UPLOAD_DIR = UPLOAD_ROOT / "profiles"
 MAX_BARBER_PHOTO_BYTES = 5 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -15,6 +16,7 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 def ensure_upload_dirs() -> None:
     BARBER_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    PROFILES_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _extension_for(file: UploadFile) -> str:

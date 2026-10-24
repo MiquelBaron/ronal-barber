@@ -1,17 +1,20 @@
+from dataclasses import asdict
 from datetime import date
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import email as email_service
+from app.services import profiling as profiling_service
 from app.services.settings_store import GROUP_LABELS, get_settings_for_admin, get_runtime_settings, update_settings
 from app.core.security import (
     create_access_token,
     get_current_user,
     hash_password,
     is_limited_barber,
+    is_shop_manager,
     require_admin,
     require_admin_or_barber,
     require_barber,
@@ -38,6 +41,9 @@ from app.schemas.schemas import (
     LoginIn,
     ManualAppointmentIn,
     MyAppointmentOut,
+    ProfilingRunOut,
+    ProfilingSqlQueryOut,
+    ProfilingStatusOut,
     ServiceIn,
     ServiceOut,
     SettingItemOut,
@@ -48,6 +54,7 @@ from app.schemas.schemas import (
     TelegramStatusOut,
     TestEmailIn,
     UserIn,
+    UserUpdateIn,
     UserOut,
 )
 from app.services import appointments as appointments_service
@@ -110,6 +117,39 @@ async def create_user(payload: UserIn, _: User = Depends(require_admin), db: Asy
     return user
 
 
+@router.patch("/admin/users/{user_id}", response_model=UserOut)
+async def update_user(
+    user_id: int,
+    payload: UserUpdateIn,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    if user_id == current_user.id and payload.role != "admin":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot remove your own admin role")
+
+    barber_id = payload.barber_id if payload.role in {"barber", "admin_barber"} else None
+    if payload.role in {"barber", "admin_barber"} and barber_id is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Barber users require barber_id")
+    if barber_id is not None:
+        barber = await db.get(Barber, barber_id)
+        if barber is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found")
+        taken = await db.scalar(select(User).where(User.barber_id == barber_id, User.id != user_id))
+        if taken is not None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "That barber is already linked to another user")
+
+    user.role = payload.role
+    user.barber_id = barber_id
+    if payload.password:
+        user.password_hash = hash_password(payload.password)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 @router.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(user_id: int, current_user: User = Depends(require_admin), db: AsyncSession = Depends(get_db)) -> None:
     if user_id == current_user.id:
@@ -124,11 +164,6 @@ async def delete_user(user_id: int, current_user: User = Depends(require_admin),
 @router.get("/appointments/mine", response_model=list[MyAppointmentOut])
 async def my_appointments(user: User = Depends(require_barber), db: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
     return await appointments_service.get_barber_appointments(db, user.barber_id)
-
-
-@router.post("/payments/mock")
-async def mock_payment() -> dict[str, str]:
-    return {"status": "paid", "provider": "mock", "reference": f"mock_{uuid4().hex[:12]}"}
 
 
 @router.get("/admin/appointments", response_model=list[AdminAppointmentOut])
@@ -237,12 +272,91 @@ async def create_barber(payload: BarberIn, _: User = Depends(require_shop_manage
     return item
 
 
+def _assert_can_manage_barber(user: User, barber_id: int) -> None:
+    if is_shop_manager(user):
+        return
+    if is_limited_barber(user) and user.barber_id == barber_id:
+        return
+    raise HTTPException(status.HTTP_403_FORBIDDEN, "Access denied")
+
+
+def _require_linked_barber_id(user: User) -> int:
+    if user.barber_id is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Barber profile required")
+    return user.barber_id
+
+
+@router.get("/barber/me", response_model=BarberOut)
+async def get_my_barber_profile(user: User = Depends(require_barber), db: AsyncSession = Depends(get_db)) -> Barber:
+    item = await db.get(Barber, _require_linked_barber_id(user))
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found")
+    return item
+
+
+@router.patch("/barber/me", response_model=BarberOut)
+async def update_my_barber_profile(
+    payload: BarberIn,
+    user: User = Depends(require_barber),
+    db: AsyncSession = Depends(get_db),
+) -> Barber:
+    item = await db.get(Barber, _require_linked_barber_id(user))
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found")
+    item.name = payload.name
+    item.description = payload.description
+    item.specialties = payload.specialties
+    # Limited barbers cannot deactivate themselves via profile
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+@router.post("/barber/me/photo", response_model=BarberOut)
+async def upload_my_barber_photo(
+    photo: UploadFile = File(...),
+    user: User = Depends(require_barber),
+    db: AsyncSession = Depends(get_db),
+) -> Barber:
+    item = await db.get(Barber, _require_linked_barber_id(user))
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found")
+    if item.image_url:
+        uploads_service.delete_barber_photo_file(item.image_url)
+    item.image_url = await uploads_service.save_barber_photo(item.id, photo)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+@router.delete("/barber/me/photo", response_model=BarberOut)
+async def delete_my_barber_photo(user: User = Depends(require_barber), db: AsyncSession = Depends(get_db)) -> Barber:
+    item = await db.get(Barber, _require_linked_barber_id(user))
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found")
+    if item.image_url:
+        uploads_service.delete_barber_photo_file(item.image_url)
+        item.image_url = ""
+        await db.commit()
+        await db.refresh(item)
+    return item
+
+
 @router.patch("/barbers/{barber_id}", response_model=BarberOut)
-async def update_barber(barber_id: int, payload: BarberIn, _: User = Depends(require_shop_manager), db: AsyncSession = Depends(get_db)) -> Barber:
+async def update_barber(
+    barber_id: int,
+    payload: BarberIn,
+    user: User = Depends(require_admin_or_barber),
+    db: AsyncSession = Depends(get_db),
+) -> Barber:
+    _assert_can_manage_barber(user, barber_id)
     item = await db.get(Barber, barber_id)
     if item is None:
         raise HTTPException(404, "Barber not found")
-    for key, value in payload.model_dump().items():
+    data = payload.model_dump()
+    if is_limited_barber(user):
+        data["active"] = item.active
+    for key, value in data.items():
         setattr(item, key, value)
     await db.commit()
     await db.refresh(item)
@@ -253,9 +367,10 @@ async def update_barber(barber_id: int, payload: BarberIn, _: User = Depends(req
 async def upload_barber_photo(
     barber_id: int,
     photo: UploadFile = File(...),
-    _: User = Depends(require_shop_manager),
+    user: User = Depends(require_admin_or_barber),
     db: AsyncSession = Depends(get_db),
 ) -> Barber:
+    _assert_can_manage_barber(user, barber_id)
     item = await db.get(Barber, barber_id)
     if item is None:
         raise HTTPException(404, "Barber not found")
@@ -270,9 +385,10 @@ async def upload_barber_photo(
 @router.delete("/barbers/{barber_id}/photo", response_model=BarberOut)
 async def delete_barber_photo(
     barber_id: int,
-    _: User = Depends(require_shop_manager),
+    user: User = Depends(require_admin_or_barber),
     db: AsyncSession = Depends(get_db),
 ) -> Barber:
+    _assert_can_manage_barber(user, barber_id)
     item = await db.get(Barber, barber_id)
     if item is None:
         raise HTTPException(404, "Barber not found")
@@ -591,3 +707,80 @@ async def admin_test_email(payload: TestEmailIn, _: User = Depends(require_admin
     if not sent:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No se pudo enviar el email. Revisa la configuración SMTP.")
     return {"status": "ok", "message": f"Email de prueba enviado a {payload.to}"}
+
+
+@router.get("/admin/profiling/status", response_model=ProfilingStatusOut)
+async def admin_profiling_status(_: User = Depends(require_admin)) -> ProfilingStatusOut:
+    return ProfilingStatusOut.model_validate(profiling_service.get_status())
+
+
+@router.post("/admin/profiling/start", response_model=ProfilingStatusOut)
+async def admin_profiling_start(_: User = Depends(require_admin)) -> ProfilingStatusOut:
+    return ProfilingStatusOut.model_validate(profiling_service.start_profiling())
+
+
+@router.post("/admin/profiling/stop", response_model=ProfilingStatusOut)
+async def admin_profiling_stop(_: User = Depends(require_admin)) -> ProfilingStatusOut:
+    return ProfilingStatusOut.model_validate(profiling_service.stop_profiling())
+
+
+@router.get("/admin/profiling/runs", response_model=list[ProfilingRunOut])
+async def admin_profiling_runs(_: User = Depends(require_admin)) -> list[ProfilingRunOut]:
+    return [
+        ProfilingRunOut(
+            id=run.id,
+            method=run.method,
+            path=run.path,
+            status_code=run.status_code,
+            duration_ms=run.duration_ms,
+            created_at=run.created_at,
+            sql_count=run.sql_count,
+            sql_total_ms=run.sql_total_ms,
+            queries=[],
+        )
+        for run in profiling_service.list_runs()
+    ]
+
+
+@router.get("/admin/profiling/runs/{run_id}/detail", response_model=ProfilingRunOut)
+async def admin_profiling_run_detail(run_id: str, _: User = Depends(require_admin)) -> ProfilingRunOut:
+    detail = profiling_service.get_run_detail(run_id)
+    if detail is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Profile run not found")
+    return ProfilingRunOut.model_validate(
+        {
+            "id": detail.id,
+            "method": detail.method,
+            "path": detail.path,
+            "status_code": detail.status_code,
+            "duration_ms": detail.duration_ms,
+            "created_at": detail.created_at,
+            "sql_count": detail.sql_count,
+            "sql_total_ms": detail.sql_total_ms,
+            "queries": [
+                {
+                    "statement": q.statement,
+                    "duration_ms": q.duration_ms,
+                    "parameters": q.parameters,
+                    "owner_key": q.owner_key,
+                    "stack": [asdict(frame) for frame in q.stack],
+                }
+                for q in detail.queries
+            ],
+            "cpu_tree": detail.cpu_tree,
+        }
+    )
+
+
+@router.get("/admin/profiling/runs/{run_id}", response_class=HTMLResponse)
+async def admin_profiling_run_html(run_id: str, _: User = Depends(require_admin)) -> HTMLResponse:
+    html = profiling_service.get_run_html(run_id)
+    if html is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Profile run not found")
+    return HTMLResponse(content=html)
+
+
+@router.delete("/admin/profiling/runs/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_profiling_delete_run(run_id: str, _: User = Depends(require_admin)) -> None:
+    if not profiling_service.delete_run(run_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Profile run not found")

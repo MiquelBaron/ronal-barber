@@ -192,7 +192,7 @@ export function AdminHoursPage() {
                         onClick={() => void removeSlot(item)}
                         className="text-xs uppercase text-red-700"
                       >
-                        Bloquear franja
+                        Eliminar franja
                       </button>
                     )}
                   </div>

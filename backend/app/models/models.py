@@ -15,13 +15,6 @@ class AppointmentStatus(StrEnum):
     cancelled = "cancelled"
 
 
-class PaymentStatus(StrEnum):
-    pending = "pending"
-    paid = "paid"
-    failed = "failed"
-    refunded = "refunded"
-
-
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -83,8 +76,8 @@ class Appointment(Base):
     end_time: Mapped[time] = mapped_column(Time)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     status: Mapped[str] = mapped_column(String(20), default=AppointmentStatus.confirmed.value)
-    payment_status: Mapped[str] = mapped_column(String(20), default=PaymentStatus.paid.value)
-    payment_provider: Mapped[str] = mapped_column(String(40), default="mock")
+    payment_status: Mapped[str] = mapped_column(String(20), default="")
+    payment_provider: Mapped[str] = mapped_column(String(40), default="")
     payment_reference: Mapped[str] = mapped_column(String(120), default="")
     cancel_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     cancel_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
