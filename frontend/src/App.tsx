@@ -18,7 +18,6 @@ import { AdminCronsPage } from "./pages/AdminCronsPage";
 import { AdminProfilingPage } from "./pages/AdminProfilingPage";
 import { BarberConfigPage } from "./pages/BarberConfigPage";
 import { CancelAppointmentPage } from "./pages/CancelAppointmentPage";
-import { BarberProfilePage } from "./pages/BarberProfilePage";
 import { api } from "./services/api";
 import type { Barber, Service } from "./types/api";
 
@@ -59,11 +58,9 @@ function App() {
       <Route path="/mis-citas" element={<Navigate to="/admin/agenda" replace />} />
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage services={services} barbers={barbers} apiOnline={apiOnline} />} />
-        <Route path="/servicios" element={<PublicPage path="/servicios" services={services} barbers={barbers} />} />
-        <Route path="/barberos" element={<PublicPage path="/barberos" services={services} barbers={barbers} />} />
-        <Route path="/barberos/:id" element={<BarberProfilePage />} />
-        <Route path="/galeria" element={<PublicPage path="/galeria" services={services} barbers={barbers} />} />
-        <Route path="/contacto" element={<PublicPage path="/contacto" services={services} barbers={barbers} />} />
+        <Route path="/servicios" element={<PublicPage path="/servicios" services={services} />} />
+        <Route path="/galeria" element={<PublicPage path="/galeria" services={services} />} />
+        <Route path="/contacto" element={<PublicPage path="/contacto" services={services} />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

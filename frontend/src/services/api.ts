@@ -29,8 +29,8 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 export const api = {
   getServices: (includeInactive = false) => request<Service[]>(`/api/services?include_inactive=${includeInactive}`),
   getService: (id: number) => request<Service>(`/api/services/${id}`),
-  createService: (body: { name: string; description: string; price: number; duration_minutes: number; active: boolean }) => request<Service>("/api/services", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-  updateService: (id: number, body: { name: string; description: string; price: number; duration_minutes: number; active: boolean }) => request<Service>(`/api/services/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  createService: (body: { name: string; description: string; price: number; duration_minutes: number; active: boolean; is_independent: boolean; is_complement: boolean }) => request<Service>("/api/services", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  updateService: (id: number, body: { name: string; description: string; price: number; duration_minutes: number; active: boolean; is_independent: boolean; is_complement: boolean }) => request<Service>(`/api/services/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   deleteService: (id: number) => request<void>(`/api/services/${id}`, { method: "DELETE" }),
   getBarbers: (includeInactive = false) => request<Barber[]>(`/api/barbers?include_inactive=${includeInactive}`),
   getBarber: (id: number) => request<Barber>(`/api/barbers/${id}`),
@@ -68,14 +68,16 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body.map((item) => ({ ...item, barber_id: barberId }))),
     }),
-  getAvailability: (serviceId: number, date: string, barberId?: number) => {
+  getAvailability: (serviceId: number, date: string, barberId?: number, complementIds: number[] = []) => {
     const query = new URLSearchParams({ service_id: String(serviceId), date });
     if (barberId) query.set("barber_id", String(barberId));
+    for (const complementId of complementIds) query.append("complement_ids", String(complementId));
     return request<{ slots: string[] }>(`/api/availability?${query}`);
   },
-  getStaffAvailability: (serviceId: number, date: string, barberId?: number) => {
+  getStaffAvailability: (serviceId: number, date: string, barberId?: number, complementIds: number[] = []) => {
     const query = new URLSearchParams({ service_id: String(serviceId), date });
     if (barberId) query.set("barber_id", String(barberId));
+    for (const complementId of complementIds) query.append("complement_ids", String(complementId));
     return request<{ slots: string[] }>(`/api/admin/availability?${query}`);
   },
   login: (email: string, password: string) =>

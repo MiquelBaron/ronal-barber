@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ServiceList } from "../components/ServiceList";
 import { api } from "../services/api";
-import type { Barber, BusinessHour, Service } from "../types/api";
+import type { BusinessHour, Service } from "../types/api";
 import galleryImg from "../assets/img1.jpeg";
 import galleryImg2 from "../assets/img2.jpeg";
 import galleryImg3 from "../assets/img3.jpeg";
@@ -22,11 +22,6 @@ const PAGE_META: Record<string, { eyebrow: string; title: string; description: s
     eyebrow: "Catálogo",
     title: "Servicios con precisión.",
     description: "Cortes, fades y arreglo de barba con tiempos y precios claros.",
-  },
-  "/barberos": {
-    eyebrow: "Equipo",
-    title: "El equipo.",
-    description: "Profesionales con estilo propio. Reserva directamente con quien prefieras.",
   },
   "/galeria": {
     eyebrow: "Galería",
@@ -56,11 +51,9 @@ function formatHours(hours: BusinessHour[]): string[] {
 export function PublicPage({
   path,
   services,
-  barbers,
 }: {
   path: string;
   services: Service[];
-  barbers: Barber[];
 }) {
   const [hours, setHours] = useState<BusinessHour[]>([]);
   const meta = PAGE_META[path] ?? PAGE_META["/contacto"];
@@ -92,40 +85,6 @@ export function PublicPage({
       <section className="px-5 py-12 sm:px-6 sm:py-16 lg:px-10 lg:py-20">
         <div className="mx-auto max-w-7xl">
           {path === "/servicios" && <ServiceList services={services} />}
-
-          {path === "/barberos" && (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {barbers.map((barber) => (
-                <Link
-                  key={barber.id}
-                  to={`/barberos/${barber.id}`}
-                  className="group overflow-hidden border border-white/10 bg-white/[0.02] transition-all hover:border-accent/50 hover:bg-white/[0.04]"
-                >
-                  <div className="aspect-[4/5] overflow-hidden bg-white/5">
-                    {barber.image_url ? (
-                      <img
-                        src={barber.image_url}
-                        alt={barber.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center font-display text-7xl uppercase text-white/10">
-                        {barber.name.slice(0, 1)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-6">
-                    <h2 className="font-display text-3xl uppercase">{barber.name}</h2>
-                    <p className="mt-2 text-xs uppercase tracking-[0.14em] text-accent">{barber.specialties}</p>
-                    <p className="mt-4 line-clamp-2 text-sm leading-7 text-white/55">{barber.description}</p>
-                    <span className="mt-5 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/40 group-hover:text-accent">
-                      Ver perfil <ArrowUpRight size={12} />
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
 
           {path === "/galeria" && (
             <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">

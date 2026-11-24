@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Field, fieldInputClass } from "../components/Field";
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { staffHomePath, staffRoleLabel, useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
@@ -299,35 +300,60 @@ function AdminUsersSection() {
         onSubmit={add}
         className="mb-8 grid gap-5 rounded-sm border border-black/10 bg-white p-6 shadow-sm sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_160px_1fr_auto]"
       >
-        <input required type="email" name="email" placeholder="usuario@email.com" className="border-b border-black/20 bg-transparent py-3 text-sm" />
-        <input required minLength={8} type="password" name="password" placeholder="Contraseña (mín. 8)" className="border-b border-black/20 bg-transparent py-3 text-sm" />
-        <select
-          name="role"
-          value={role}
-          onChange={(event) => setRole(event.target.value)}
-          className="border-b border-black/20 bg-transparent py-3 text-sm"
-        >
-          <option value="admin">Admin</option>
-          <option value="admin_barber">Barbero jefe</option>
-          <option value="barber">Barbero</option>
-        </select>
-        {needsBarber ? (
-          <select
+        <Field label="Email">
+          <input
             required
-            name="barber_id"
-            defaultValue=""
-            className="border-b border-black/20 bg-transparent py-3 text-sm"
+            type="email"
+            name="email"
+            aria-label="Email"
+            placeholder="usuario@email.com"
+            className={fieldInputClass}
+          />
+        </Field>
+        <Field label="Contraseña">
+          <input
+            required
+            minLength={8}
+            type="password"
+            name="password"
+            aria-label="Contraseña"
+            placeholder="Mínimo 8 caracteres"
+            className={fieldInputClass}
+          />
+        </Field>
+        <Field label="Rol">
+          <select
+            name="role"
+            aria-label="Rol"
+            value={role}
+            onChange={(event) => setRole(event.target.value)}
+            className={fieldInputClass}
           >
-            <option value="" disabled>
-              Vincular barbero…
-            </option>
-            {barbers.map((barber) => (
-              <option key={barber.id} value={barber.id}>
-                {barber.name}
-                {!barber.active ? " (inactivo)" : ""}
-              </option>
-            ))}
+            <option value="admin">Admin</option>
+            <option value="admin_barber">Barbero jefe</option>
+            <option value="barber">Barbero</option>
           </select>
+        </Field>
+        {needsBarber ? (
+          <Field label="Barbero">
+            <select
+              required
+              name="barber_id"
+              aria-label="Barbero vinculado"
+              defaultValue=""
+              className={fieldInputClass}
+            >
+              <option value="" disabled>
+                Elige barbero
+              </option>
+              {barbers.map((barber) => (
+                <option key={barber.id} value={barber.id}>
+                  {barber.name}
+                  {!barber.active ? " (inactivo)" : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
         ) : (
           <div className="hidden lg:block" aria-hidden="true" />
         )}
@@ -350,41 +376,50 @@ function AdminUsersSection() {
                   <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-black/40">Editando</p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <select
-                    value={editRole}
-                    onChange={(event) => setEditRole(event.target.value)}
-                    className="border-b border-black/20 bg-transparent py-2 text-sm"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="admin_barber">Barbero jefe</option>
-                    <option value="barber">Barbero</option>
-                  </select>
-                  {editNeedsBarber && (
+                  <Field label="Rol">
                     <select
-                      required
-                      value={editBarberId}
-                      onChange={(event) => setEditBarberId(event.target.value)}
-                      className="border-b border-black/20 bg-transparent py-2 text-sm"
+                      aria-label="Rol"
+                      value={editRole}
+                      onChange={(event) => setEditRole(event.target.value)}
+                      className={fieldInputClass}
                     >
-                      <option value="" disabled>
-                        Vincular barbero…
-                      </option>
-                      {barbers.map((barber) => (
-                        <option key={barber.id} value={barber.id}>
-                          {barber.name}
-                          {!barber.active ? " (inactivo)" : ""}
-                        </option>
-                      ))}
+                      <option value="admin">Admin</option>
+                      <option value="admin_barber">Barbero jefe</option>
+                      <option value="barber">Barbero</option>
                     </select>
+                  </Field>
+                  {editNeedsBarber && (
+                    <Field label="Barbero">
+                      <select
+                        required
+                        aria-label="Barbero vinculado"
+                        value={editBarberId}
+                        onChange={(event) => setEditBarberId(event.target.value)}
+                        className={fieldInputClass}
+                      >
+                        <option value="" disabled>
+                          Elige barbero
+                        </option>
+                        {barbers.map((barber) => (
+                          <option key={barber.id} value={barber.id}>
+                            {barber.name}
+                            {!barber.active ? " (inactivo)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
                   )}
-                  <input
-                    type="password"
-                    minLength={8}
-                    value={editPassword}
-                    onChange={(event) => setEditPassword(event.target.value)}
-                    placeholder="Nueva contraseña (opcional)"
-                    className="border-b border-black/20 bg-transparent py-2 text-sm"
-                  />
+                  <Field label="Contraseña">
+                    <input
+                      type="password"
+                      minLength={8}
+                      aria-label="Nueva contraseña"
+                      value={editPassword}
+                      onChange={(event) => setEditPassword(event.target.value)}
+                      placeholder="Nueva (opcional)"
+                      className={fieldInputClass}
+                    />
+                  </Field>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <button

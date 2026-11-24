@@ -1,7 +1,8 @@
+import json
 from datetime import date, datetime, time
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 class ServiceIn(BaseModel):
@@ -10,6 +11,14 @@ class ServiceIn(BaseModel):
     price: Decimal = Field(gt=0, le=1000)
     duration_minutes: int = Field(gt=0, le=480)
     active: bool = True
+    is_independent: bool = True
+    is_complement: bool = False
+
+    @model_validator(mode="after")
+    def require_role(self) -> "ServiceIn":
+        if not self.is_independent and not self.is_complement:
+            raise ValueError("A service must be independent, a complement, or both")
+        return self
 
 
 class ServiceOut(ServiceIn):
@@ -40,6 +49,7 @@ class AppointmentIn(BaseModel):
     customer_phone: str = Field(min_length=7, max_length=40)
     customer_email: EmailStr
     privacy_accepted: bool = True
+    complement_ids: list[int] = Field(default_factory=list)
 
     @field_validator("privacy_accepted")
     @classmethod
@@ -59,6 +69,7 @@ class ManualAppointmentIn(BaseModel):
     customer_phone: str = Field(min_length=7, max_length=40)
     customer_email: EmailStr
     send_customer_email: bool = True
+    complement_ids: list[int] = Field(default_factory=list)
 
 
 class AppointmentOut(BaseModel):
@@ -71,7 +82,20 @@ class AppointmentOut(BaseModel):
     price: Decimal
     status: str
     customer_email: EmailStr
+    complement_ids: list[int] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("complement_ids", mode="before")
+    @classmethod
+    def parse_complement_ids(cls, value: object) -> list[int]:
+        if value is None or value == "":
+            return []
+        if isinstance(value, list):
+            return [int(item) for item in value]
+        if isinstance(value, str):
+            parsed = json.loads(value)
+            return [int(item) for item in parsed] if isinstance(parsed, list) else []
+        return []
 
 
 class AppointmentByTokenOut(BaseModel):

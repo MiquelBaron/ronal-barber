@@ -10,10 +10,22 @@ function normalizeServiceName(name: string): string {
     .trim();
 }
 
-/** Prefer "Corte clásico"; fall back to first active service. */
+export function independentServices(services: Service[]): Service[] {
+  return services.filter((item) => item.active !== false && item.is_independent !== false);
+}
+
+export function complementOptions(services: Service[], independentId: string | number | null): Service[] {
+  const excluded = Number(independentId);
+  return services.filter(
+    (item) => item.active !== false && item.is_complement && item.id !== excluded,
+  );
+}
+
+/** Prefer "Corte clásico"; fall back to first independent service. */
 export function defaultServiceId(services: Service[]): string {
-  const active = services.filter((item) => item.active !== false);
-  const list = active.length > 0 ? active : services;
-  const classic = list.find((item) => normalizeServiceName(item.name) === DEFAULT_SERVICE_NAME);
-  return classic ? String(classic.id) : list[0] ? String(list[0].id) : "";
+  const list = independentServices(services);
+  const fallback = list.length > 0 ? list : services.filter((item) => item.active !== false);
+  const pool = fallback.length > 0 ? fallback : services;
+  const classic = pool.find((item) => normalizeServiceName(item.name) === DEFAULT_SERVICE_NAME);
+  return classic ? String(classic.id) : pool[0] ? String(pool[0].id) : "";
 }

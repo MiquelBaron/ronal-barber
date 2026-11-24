@@ -11,6 +11,7 @@ from app.crons.common import CronSpec, shop_now
 from app.db.session import SessionLocal
 from app.models.models import Appointment, AppointmentStatus, Barber, Service
 from app.services import email as email_service
+from app.services.booking import named_service_for_appointment
 from app.services.settings_store import get_runtime_settings
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,8 @@ async def run(reference: datetime | None = None) -> str:
             barber = await db.get(Barber, appointment.barber_id) if appointment.barber_id else None
             candidates += 1
 
-            sent = await email_service.send_review_request(appointment, service, barber)
+            labeled = await named_service_for_appointment(db, appointment, service)
+            sent = await email_service.send_review_request(appointment, labeled, barber)
             if not sent:
                 failed_count += 1
                 continue

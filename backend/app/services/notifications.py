@@ -12,6 +12,7 @@ from app.db.session import SessionLocal
 from app.models.models import Appointment, Barber, Service
 from app.services import email as email_service
 from app.services import telegram as telegram_service
+from app.services.booking import named_service_for_appointment
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +39,15 @@ async def _notify_created(appointment_id: int, send_customer_email: bool) -> Non
         barber = await db.get(Barber, appointment.barber_id) if appointment.barber_id else None
         if service is None or barber is None:
             return
+        labeled = await named_service_for_appointment(db, appointment, service)
 
         if send_customer_email:
-            sent = await email_service.send_booking_confirmation(appointment, service, barber)
+            sent = await email_service.send_booking_confirmation(appointment, labeled, barber)
             if sent:
                 appointment.confirmation_sent_at = datetime.utcnow()
                 await db.commit()
 
-        await telegram_service.notify_barber_new_appointment(barber, appointment, service)
+        await telegram_service.notify_barber_new_appointment(barber, appointment, labeled)
 
 
 async def _notify_cancelled(appointment_id: int) -> None:
@@ -55,9 +57,10 @@ async def _notify_cancelled(appointment_id: int) -> None:
             return
         service = await db.get(Service, appointment.service_id)
         barber = await db.get(Barber, appointment.barber_id) if appointment.barber_id else None
-        await email_service.send_cancellation_confirmation(appointment, service)
+        labeled = await named_service_for_appointment(db, appointment, service)
+        await email_service.send_cancellation_confirmation(appointment, labeled)
         if barber:
-            await telegram_service.notify_barber_cancellation(barber, appointment, service)
+            await telegram_service.notify_barber_cancellation(barber, appointment, labeled)
 
 
 async def on_appointment_created(

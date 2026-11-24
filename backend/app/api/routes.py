@@ -465,9 +465,16 @@ async def availability(
     service_id: int = Query(gt=0),
     date: date = Query(...),
     barber_id: int | None = Query(default=None, gt=0),
+    complement_ids: list[int] = Query(default=[]),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, list[str]]:
-    slots = await booking_service.get_availability_slots(db, service_id, date, barber_id)
+    slots = await booking_service.get_availability_slots(
+        db,
+        service_id,
+        date,
+        barber_id,
+        complement_ids=complement_ids,
+    )
     return {"slots": slots}
 
 
@@ -476,6 +483,7 @@ async def admin_availability(
     service_id: int = Query(gt=0),
     date: date = Query(...),
     barber_id: int | None = Query(default=None, gt=0),
+    complement_ids: list[int] = Query(default=[]),
     _: User = Depends(require_admin_or_barber),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, list[str]]:
@@ -486,6 +494,7 @@ async def admin_availability(
         date,
         barber_id,
         respect_booking_horizon=False,
+        complement_ids=complement_ids,
     )
     return {"slots": slots}
 
@@ -502,6 +511,7 @@ async def create_appointment(payload: AppointmentIn, db: AsyncSession = Depends(
         customer_surname=payload.customer_surname,
         customer_phone=payload.customer_phone,
         customer_email=str(payload.customer_email),
+        complement_ids=payload.complement_ids,
     )
     await notifications_service.on_appointment_created(db, appointment, service, barber)
     return appointment
@@ -529,6 +539,7 @@ async def create_manual_appointment(
         customer_email=str(payload.customer_email),
         forced_barber_id=forced_barber_id,
         respect_booking_horizon=False,
+        complement_ids=payload.complement_ids,
     )
     await notifications_service.on_appointment_created(
         db,

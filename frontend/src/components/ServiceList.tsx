@@ -1,6 +1,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Service } from "../types/api";
+import { independentServices } from "../utils/services";
 
 type Props = {
   services: Service[];
@@ -12,14 +13,15 @@ export function ServiceList({ services, variant = "dark" }: Props) {
   const border = isDark ? "divide-white/15 border-white/15" : "divide-black/10 border-black/10";
   const desc = isDark ? "text-white/60" : "text-black/55";
   const meta = isDark ? "text-white/45" : "text-black/40";
+  const bookable = independentServices(services);
 
-  if (!services.length) {
+  if (!bookable.length) {
     return <p className={`py-8 ${meta}`}>No hay servicios disponibles.</p>;
   }
 
   return (
     <div className={`divide-y border-t ${border}`}>
-      {services.map((service) => (
+      {bookable.map((service) => (
         <article
           key={service.id}
           className="group grid gap-5 py-8 transition-colors md:grid-cols-[1.2fr_1.8fr_auto] md:items-center lg:grid-cols-[1fr_2fr_auto_auto] lg:gap-8"

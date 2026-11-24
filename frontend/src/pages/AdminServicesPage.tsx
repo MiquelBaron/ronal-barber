@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 
+import { Field, fieldInputClass } from "../components/Field";
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
@@ -13,6 +14,8 @@ const empty = {
   price: "0",
   duration_minutes: 30,
   active: true,
+  is_independent: true,
+  is_complement: false,
 };
 
 export function AdminServicesPage() {
@@ -38,6 +41,11 @@ export function AdminServicesPage() {
 
   async function save(event: FormEvent) {
     event.preventDefault();
+
+    if (!form.is_independent && !form.is_complement) {
+      setError("Marca al menos Independiente o Complemento.");
+      return;
+    }
 
     try {
       const payload = {
@@ -80,7 +88,11 @@ export function AdminServicesPage() {
       <StaffPageHeader
         eyebrow="Catálogo"
         title="Servicios"
-        description={canEdit ? "Precio y duración controlan la disponibilidad." : "Consulta el catálogo de servicios del local."}
+        description={
+          canEdit
+            ? "Independiente = se reserva solo. Complemento = extra “+” de otro servicio."
+            : "Consulta el catálogo de servicios del local."
+        }
       />
 
       {canEdit && (
@@ -88,61 +100,91 @@ export function AdminServicesPage() {
         onSubmit={save}
         className="mt-12 grid gap-4 border-y border-black/15 py-7 md:grid-cols-[1fr_1.5fr_120px_120px_auto]"
       >
-        <input
-          required
-          placeholder="Nombre"
-          value={form.name}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              name: e.target.value,
-            })
-          }
-          className="border-b border-black/25 bg-transparent py-3"
-        />
+        <Field label="Nombre">
+          <input
+            required
+            aria-label="Nombre del servicio"
+            placeholder="Corte clásico"
+            value={form.name}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                name: e.target.value,
+              })
+            }
+            className={fieldInputClass}
+          />
+        </Field>
 
-        <input
-          placeholder="Descripción"
-          value={form.description}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              description: e.target.value,
-            })
-          }
-          className="border-b border-black/25 bg-transparent py-3"
-        />
+        <Field label="Descripción">
+          <input
+            aria-label="Descripción del servicio"
+            placeholder="Qué incluye el servicio"
+            value={form.description}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                description: e.target.value,
+              })
+            }
+            className={fieldInputClass}
+          />
+        </Field>
 
-        <input
-          required
-          type="number"
-          min="1"
-          step="0.01"
-          placeholder="Precio"
-          value={form.price}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              price: e.target.value,
-            })
-          }
-          className="border-b border-black/25 bg-transparent py-3"
-        />
+        <Field label="Precio (€)">
+          <input
+            required
+            type="number"
+            min="1"
+            step="0.01"
+            aria-label="Precio en euros"
+            placeholder="18"
+            value={form.price}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                price: e.target.value,
+              })
+            }
+            className={fieldInputClass}
+          />
+        </Field>
 
-        <input
-          required
-          type="number"
-          min="1"
-          placeholder="Minutos"
-          value={form.duration_minutes}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              duration_minutes: Number(e.target.value),
-            })
-          }
-          className="border-b border-black/25 bg-transparent py-3"
-        />
+        <Field label="Duración (min)">
+          <input
+            required
+            type="number"
+            min="1"
+            aria-label="Duración en minutos"
+            placeholder="30"
+            value={form.duration_minutes}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                duration_minutes: Number(e.target.value),
+              })
+            }
+            className={fieldInputClass}
+          />
+        </Field>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.is_independent}
+            onChange={(e) => setForm({ ...form, is_independent: e.target.checked })}
+          />
+          Independiente
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.is_complement}
+            onChange={(e) => setForm({ ...form, is_complement: e.target.checked })}
+          />
+          Complemento
+        </label>
 
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -178,6 +220,8 @@ export function AdminServicesPage() {
 
               <p className="text-sm text-black/55">
                 {item.active ? "Activo" : "Inactivo"}
+                {item.is_independent ? " · Independiente" : ""}
+                {item.is_complement ? " · Complemento" : ""}
               </p>
             </div>
 
@@ -200,6 +244,8 @@ export function AdminServicesPage() {
                     price: item.price,
                     duration_minutes: item.duration_minutes,
                     active: item.active,
+                    is_independent: item.is_independent,
+                    is_complement: item.is_complement,
                   });
                 }}
               >

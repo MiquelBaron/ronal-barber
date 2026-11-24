@@ -42,7 +42,7 @@ async def test_availability_excludes_past_and_imminent_slots_today(
     slots = await booking_service.get_availability_slots(db_session, service_id=1, day=today)
 
     assert "09:00" not in slots
-    assert "16:20" not in slots
+    assert "16:50" not in slots
     assert "17:00" not in slots
 
 
@@ -274,8 +274,9 @@ async def test_availability_respects_40_minute_service_duration(db_session: Asyn
 
     slots = await booking_service.get_availability_slots(db_session, service_id=1, day=tomorrow)
     assert "09:00" in slots
-    assert "09:40" in slots
-    assert "17:40" not in slots
+    assert "09:10" in slots
+    assert "17:20" in slots
+    assert "17:30" not in slots
 
 
 @pytest.mark.asyncio
@@ -288,9 +289,9 @@ async def test_availability_respects_60_minute_service_duration(db_session: Asyn
 
     slots = await booking_service.get_availability_slots(db_session, service_id=1, day=tomorrow)
     assert "09:00" in slots
-    assert "09:40" in slots
-    assert "17:40" not in slots
+    assert "09:10" in slots
     assert "17:00" in slots
+    assert "17:10" not in slots
 
 
 @pytest.mark.asyncio
@@ -394,3 +395,130 @@ async def test_login_and_barber_access(client: AsyncClient) -> None:
 
     appointments = await client.get("/api/appointments/mine")
     assert appointments.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_availability_adds_complement_duration(db_session: AsyncSession) -> None:
+    tomorrow = _next_weekday()
+    extra = Service(
+        name="Barba extra",
+        description="",
+        price=Decimal("12.00"),
+        duration_minutes=30,
+        active=True,
+        is_independent=False,
+        is_complement=True,
+    )
+    db_session.add(extra)
+    await db_session.commit()
+
+    slots = await booking_service.get_availability_slots(
+        db_session,
+        service_id=1,
+        day=tomorrow,
+        complement_ids=[extra.id],
+    )
+    assert "09:00" in slots
+    assert "17:00" in slots
+    assert "17:10" not in slots
+
+
+@pytest.mark.asyncio
+async def test_create_appointment_sums_price_and_end_time(db_session: AsyncSession) -> None:
+    tomorrow = _next_weekday(2)
+    extra = Service(
+        name="Barba extra",
+        description="",
+        price=Decimal("12.00"),
+        duration_minutes=30,
+        active=True,
+        is_independent=False,
+        is_complement=True,
+    )
+    db_session.add(extra)
+    await db_session.commit()
+
+    appointment, _, _ = await booking_service.create_appointment(
+        db_session,
+        service_id=1,
+        barber_id=1,
+        day=tomorrow,
+        start_time=time(10, 0),
+        customer_name="Juan",
+        customer_surname="Pérez",
+        customer_phone="600123456",
+        customer_email="juan@example.com",
+        complement_ids=[extra.id],
+    )
+    assert appointment.end_time == time(11, 0)
+    assert appointment.price == Decimal("32.00")
+    assert booking_service.parse_complement_ids(appointment.complement_ids) == [extra.id]
+
+
+@pytest.mark.asyncio
+async def test_reject_complement_only_as_main(db_session: AsyncSession) -> None:
+    tomorrow = _next_weekday()
+    extra = Service(
+        name="Solo extra",
+        description="",
+        price=Decimal("10.00"),
+        duration_minutes=20,
+        active=True,
+        is_independent=False,
+        is_complement=True,
+    )
+    db_session.add(extra)
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as error:
+        await booking_service.get_availability_slots(db_session, service_id=extra.id, day=tomorrow)
+    assert error.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_reject_self_as_complement(db_session: AsyncSession) -> None:
+    tomorrow = _next_weekday()
+    service = await db_session.get(Service, 1)
+    assert service is not None
+    service.is_complement = True
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as error:
+        await booking_service.get_availability_slots(
+            db_session,
+            service_id=1,
+            day=tomorrow,
+            complement_ids=[1],
+        )
+    assert error.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_reject_non_complement_extra(db_session: AsyncSession) -> None:
+    tomorrow = _next_weekday()
+    other = Service(
+        name="Otro corte",
+        description="",
+        price=Decimal("18.00"),
+        duration_minutes=30,
+        active=True,
+        is_independent=True,
+        is_complement=False,
+    )
+    db_session.add(other)
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as error:
+        await booking_service.create_appointment(
+            db_session,
+            service_id=1,
+            barber_id=1,
+            day=tomorrow,
+            start_time=time(10, 0),
+            customer_name="Juan",
+            customer_surname="Pérez",
+            customer_phone="600123456",
+            customer_email="juan@example.com",
+            complement_ids=[other.id],
+        )
+    assert error.value.status_code == 400

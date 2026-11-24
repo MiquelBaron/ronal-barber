@@ -147,7 +147,9 @@ export function BarberConfigPage() {
                 minLength={2}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="mt-2 w-full border border-black/15 bg-[#eceae4]/40 px-4 py-3 text-sm outline-none focus:border-accent"
+                aria-label="Nombre"
+                placeholder="Tu nombre"
+                className="mt-2 w-full border border-black/15 bg-[#eceae4]/40 px-4 py-3 text-sm outline-none placeholder:text-black/35 focus:border-accent"
               />
             </label>
 
@@ -157,7 +159,8 @@ export function BarberConfigPage() {
                 value={specialties}
                 onChange={(event) => setSpecialties(event.target.value)}
                 className="mt-2 w-full border border-black/15 bg-[#eceae4]/40 px-4 py-3 text-sm outline-none focus:border-accent"
-                placeholder="Corte, barba…"
+                aria-label="Especialidades"
+                placeholder="Fade, barba…"
               />
             </label>
 
@@ -167,7 +170,9 @@ export function BarberConfigPage() {
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 rows={4}
-                className="mt-2 w-full border border-black/15 bg-[#eceae4]/40 px-4 py-3 text-sm outline-none focus:border-accent"
+                aria-label="Descripción"
+                placeholder="Cómo te presentas a los clientes"
+                className="mt-2 w-full border border-black/15 bg-[#eceae4]/40 px-4 py-3 text-sm outline-none placeholder:text-black/35 focus:border-accent"
               />
             </label>
 

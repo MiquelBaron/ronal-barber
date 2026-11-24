@@ -22,6 +22,9 @@ COMMON_PATCHES: list[str] = [
     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMP",
     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS review_request_sent_at TIMESTAMP",
     "CREATE INDEX IF NOT EXISTS ix_appointments_cancel_token ON appointments (cancel_token)",
+    "ALTER TABLE services ADD COLUMN IF NOT EXISTS is_independent BOOLEAN NOT NULL DEFAULT TRUE",
+    "ALTER TABLE services ADD COLUMN IF NOT EXISTS is_complement BOOLEAN NOT NULL DEFAULT FALSE",
+    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS complement_ids TEXT NOT NULL DEFAULT '[]'",
     # appointments — only confirmed | cancelled
     "UPDATE appointments SET status = 'confirmed' WHERE status IN ('pending', 'completed')",
     # system settings

@@ -21,9 +21,9 @@ export function AdminHoursPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [selectedBarberId, setSelectedBarberId] = useState<number | null>(null);
   const [hours, setHours] = useState<BusinessHour[]>([]);
-  const [day, setDay] = useState(0);
-  const [start, setStart] = useState("09:00");
-  const [end, setEnd] = useState("14:00");
+  const [day, setDay] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
   const [error, setError] = useState("");
 
   const canManageHours = canEdit || isLimitedBarber;
@@ -52,7 +52,7 @@ export function AdminHoursPage() {
   }, [barberId]);
 
   async function persistHours(next: BusinessHour[]) {
-    if (!barberId) return;
+    if (!barberId) return false;
     try {
       const saved = await api.replaceHours(
         barberId,
@@ -60,14 +60,20 @@ export function AdminHoursPage() {
       );
       setHours(saved);
       setError("");
+      return true;
     } catch {
       setError("No se han podido guardar los horarios.");
+      return false;
     }
   }
 
   async function add(event: FormEvent) {
     event.preventDefault();
     if (!barberId) return;
+
+    if (day === "" || !start || !end) {
+      return setError("Elige el día, la hora de inicio y la hora de fin.");
+    }
 
     if (start >= end) {
       return setError("La hora de inicio debe ser anterior a la hora final.");
@@ -77,14 +83,18 @@ export function AdminHoursPage() {
       ...hours,
       {
         barber_id: barberId,
-        day_of_week: day,
+        day_of_week: Number(day),
         start_time: start,
         end_time: end,
         active: true,
       },
     ];
 
-    await persistHours(next);
+    const saved = await persistHours(next);
+    if (!saved) return;
+    setDay("");
+    setStart("");
+    setEnd("");
   }
 
   async function removeSlot(item: BusinessHour) {
@@ -130,33 +140,61 @@ export function AdminHoursPage() {
           onSubmit={add}
           className="mt-8 grid gap-4 border-y border-black/15 py-7 md:grid-cols-[1fr_1fr_1fr_auto]"
         >
-          <select
-            value={day}
-            onChange={(e) => setDay(Number(e.target.value))}
-            className="border-b border-black/25 bg-transparent py-3"
-          >
-            {days.map((label, index) => (
-              <option key={label} value={index}>
-                {label}
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-black/45">Día</span>
+            <select
+              required
+              aria-label="Día"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+              className={`mt-2 w-full border-b border-black/25 bg-transparent py-3 ${day === "" ? "text-black/40" : ""}`}
+            >
+              <option value="" disabled>
+                Elige el día
               </option>
-            ))}
-          </select>
+              {days.map((label, index) => (
+                <option key={label} value={index}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <input
-            type="time"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            className="border-b border-black/25 bg-transparent py-3"
-          />
+          <label className="relative block">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-black/45">Hora de inicio</span>
+            {!start && (
+              <span className="pointer-events-none absolute left-0 top-[2.15rem] text-sm text-black/40">
+                Elige hora de inicio
+              </span>
+            )}
+            <input
+              required
+              type="time"
+              aria-label="Hora de inicio"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className={`mt-2 w-full border-b border-black/25 bg-transparent py-3 ${start ? "" : "text-transparent"}`}
+            />
+          </label>
 
-          <input
-            type="time"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            className="border-b border-black/25 bg-transparent py-3"
-          />
+          <label className="relative block">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-black/45">Hora de fin</span>
+            {!end && (
+              <span className="pointer-events-none absolute left-0 top-[2.15rem] text-sm text-black/40">
+                Elige hora de fin
+              </span>
+            )}
+            <input
+              required
+              type="time"
+              aria-label="Hora de fin"
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              className={`mt-2 w-full border-b border-black/25 bg-transparent py-3 ${end ? "" : "text-transparent"}`}
+            />
+          </label>
 
-          <button type="submit" className="bg-ink px-5 py-3 text-xs uppercase text-paper">
+          <button type="submit" className="self-end bg-ink px-5 py-3 text-xs uppercase text-paper">
             Añadir franja
           </button>
         </form>

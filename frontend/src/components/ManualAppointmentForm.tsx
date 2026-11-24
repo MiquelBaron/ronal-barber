@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Field, fieldInputClass } from "./Field";
 import { api } from "../services/api";
 import type { Barber, Service } from "../types/api";
-import { defaultServiceId } from "../utils/services";
+import { complementOptions, defaultServiceId, independentServices } from "../utils/services";
 
 type Props = {
   barbers: Barber[];
@@ -23,6 +24,7 @@ export function ManualAppointmentForm({
 }: Props) {
   const [services, setServices] = useState<Service[]>([]);
   const [serviceId, setServiceId] = useState("");
+  const [complementIds, setComplementIds] = useState<number[]>([]);
   const [barberId, setBarberId] = useState(defaultBarberId ? String(defaultBarberId) : "");
   const [date, setDate] = useState(defaultDate);
   const [slots, setSlots] = useState<string[]>([]);
@@ -59,10 +61,10 @@ export function ManualAppointmentForm({
     }
     setSlot("");
     api
-      .getStaffAvailability(Number(serviceId), date, barberId ? Number(barberId) : undefined)
+      .getStaffAvailability(Number(serviceId), date, barberId ? Number(barberId) : undefined, complementIds)
       .then(({ slots: loaded }) => setSlots(loaded))
       .catch(() => setError("No se pudieron cargar horas."));
-  }, [serviceId, barberId, date]);
+  }, [serviceId, barberId, date, complementIds]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +73,7 @@ export function ManualAppointmentForm({
     try {
       await api.createManualAppointment({
         service_id: Number(serviceId),
+        complement_ids: complementIds,
         barber_id: barberId ? Number(barberId) : null,
         date,
         start_time: slot,
@@ -83,6 +86,7 @@ export function ManualAppointmentForm({
       setSuccess(true);
       event.currentTarget.reset();
       setServiceId(defaultServiceId(services));
+      setComplementIds([]);
       setSlot("");
       setSlots([]);
       onCreated?.();
@@ -104,33 +108,78 @@ export function ManualAppointmentForm({
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <select
-        required
-        value={serviceId}
-        onChange={(e) => setServiceId(e.target.value)}
-        className="w-full border-b border-black/25 bg-transparent py-3"
-      >
-        <option value="">Servicio</option>
-        {services.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
-        ))}
-      </select>
-
-      {!isBarber && (
+      <Field label="Servicio">
         <select
           required
-          value={barberId}
-          onChange={(e) => setBarberId(e.target.value)}
-          className="w-full border-b border-black/25 bg-transparent py-3"
+          aria-label="Servicio"
+          value={serviceId}
+          onChange={(e) => {
+            setServiceId(e.target.value);
+            setComplementIds([]);
+          }}
+          className={fieldInputClass}
         >
-          <option value="">Barbero</option>
-          {barbers.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
+          <option value="">Elige servicio</option>
+          {independentServices(services).map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
+      </Field>
+
+      {complementOptions(services, serviceId).length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="text-[10px] uppercase tracking-[0.16em] text-black/45">Extras</legend>
+          {complementOptions(services, serviceId).map((item) => (
+            <label key={item.id} className="flex items-center justify-between gap-3 border-b border-black/10 py-2 text-sm">
+              <span>
+                <input
+                  type="checkbox"
+                  className="mr-3"
+                  checked={complementIds.includes(item.id)}
+                  onChange={() =>
+                    setComplementIds((current) =>
+                      current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id],
+                    )
+                  }
+                />
+                + {item.name}
+              </span>
+              <span className="text-black/45">
+                {item.duration_minutes} min · {item.price} €
+              </span>
+            </label>
+          ))}
+        </fieldset>
       )}
 
-      <input required type="date" value={date} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setDate(e.target.value)} className="w-full border-b border-black/25 bg-transparent py-3" />
+      {!isBarber && (
+        <Field label="Barbero">
+          <select
+            required
+            aria-label="Barbero"
+            value={barberId}
+            onChange={(e) => setBarberId(e.target.value)}
+            className={fieldInputClass}
+          >
+            <option value="">Elige barbero</option>
+            {barbers.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </Field>
+      )}
+
+      <Field label="Fecha">
+        <input
+          required
+          type="date"
+          aria-label="Fecha de la cita"
+          value={date}
+          min={new Date().toISOString().slice(0, 10)}
+          onChange={(e) => setDate(e.target.value)}
+          className={fieldInputClass}
+        />
+      </Field>
 
       {slots.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -142,10 +191,18 @@ export function ManualAppointmentForm({
         </div>
       )}
 
-      <input required name="name" placeholder="Nombre" className="w-full border-b border-black/25 bg-transparent py-3" />
-      <input required name="surname" placeholder="Apellidos" className="w-full border-b border-black/25 bg-transparent py-3" />
-      <input required name="phone" placeholder="Teléfono" className="w-full border-b border-black/25 bg-transparent py-3" />
-      <input required type="email" name="email" placeholder="Email" className="w-full border-b border-black/25 bg-transparent py-3" />
+      <Field label="Nombre">
+        <input required name="name" aria-label="Nombre" placeholder="Nombre del cliente" className={fieldInputClass} />
+      </Field>
+      <Field label="Apellidos">
+        <input required name="surname" aria-label="Apellidos" placeholder="Apellidos del cliente" className={fieldInputClass} />
+      </Field>
+      <Field label="Teléfono">
+        <input required name="phone" aria-label="Teléfono" placeholder="600 000 000" className={fieldInputClass} />
+      </Field>
+      <Field label="Email">
+        <input required type="email" name="email" aria-label="Email" placeholder="cliente@email.com" className={fieldInputClass} />
+      </Field>
 
       <label className="flex items-center gap-3 text-sm">
         <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} />

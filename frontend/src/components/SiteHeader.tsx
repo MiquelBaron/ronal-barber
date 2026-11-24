@@ -5,7 +5,6 @@ import logo from "../assets/logo_ronal.png";
 
 const NAV = [
   { to: "/servicios", label: "Servicios" },
-  { to: "/barberos", label: "Barberos" },
   { to: "/galeria", label: "Galería" },
   { to: "/contacto", label: "Contacto" },
 ];

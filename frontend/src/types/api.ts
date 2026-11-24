@@ -5,6 +5,8 @@ export type Service = {
   price: string;
   duration_minutes: number;
   active: boolean;
+  is_independent: boolean;
+  is_complement: boolean;
 };
 
 export type Barber = {
@@ -35,6 +37,7 @@ export type AppointmentPayload = {
   customer_phone: FormDataEntryValue | null;
   customer_email: FormDataEntryValue | null;
   privacy_accepted: boolean;
+  complement_ids?: number[];
 };
 
 export type ManualAppointmentPayload = {
@@ -47,6 +50,7 @@ export type ManualAppointmentPayload = {
   customer_phone: string;
   customer_email: string;
   send_customer_email?: boolean;
+  complement_ids?: number[];
 };
 
 export type Appointment = {

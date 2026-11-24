@@ -48,6 +48,8 @@ class Service(Base):
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     duration_minutes: Mapped[int] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_independent: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_complement: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -66,6 +68,7 @@ class Appointment(Base):
     __tablename__ = "appointments"
     id: Mapped[int] = mapped_column(primary_key=True)
     service_id: Mapped[int] = mapped_column(ForeignKey("services.id"))
+    complement_ids: Mapped[str] = mapped_column(Text, default="[]")
     barber_id: Mapped[int | None] = mapped_column(ForeignKey("barbers.id", ondelete="SET NULL"), nullable=True)
     customer_name: Mapped[str] = mapped_column(String(80))
     customer_surname: Mapped[str] = mapped_column(String(120))

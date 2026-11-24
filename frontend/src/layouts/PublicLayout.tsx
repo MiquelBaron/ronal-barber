@@ -3,7 +3,6 @@ import { SiteHeader } from "../components/SiteHeader";
 
 const FOOTER_LINKS = [
   { to: "/servicios", label: "Servicios" },
-  { to: "/barberos", label: "Barberos" },
   { to: "/galeria", label: "Galería" },
   { to: "/contacto", label: "Contacto" },
   { to: "/reservar", label: "Reservar" },

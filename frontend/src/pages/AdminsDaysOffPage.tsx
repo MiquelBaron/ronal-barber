@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
+import { Field, fieldInputClass } from "../components/Field";
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
@@ -108,60 +109,78 @@ export function AdminDaysOffPage() {
         className="mt-12 grid gap-4 border-y border-black/15 py-7 md:grid-cols-[1.2fr_1fr_1fr_1.5fr_auto]"
       >
         {!isLimitedBarber && (
-        <select
-          required
-          value={form.barber_id}
-          onChange={(e) => setForm({ ...form, barber_id: Number(e.target.value) })}
-          className="border-b border-black/25 bg-transparent py-3"
-        >
-          <option value={0} disabled>Barbero</option>
-          {barbers.map((barber) => (
-            <option key={barber.id} value={barber.id}>{barber.name}</option>
-          ))}
-        </select>
+          <Field label="Barbero">
+            <select
+              required
+              aria-label="Barbero"
+              value={form.barber_id}
+              onChange={(e) => setForm({ ...form, barber_id: Number(e.target.value) })}
+              className={fieldInputClass}
+            >
+              <option value={0} disabled>
+                Elige barbero
+              </option>
+              {barbers.map((barber) => (
+                <option key={barber.id} value={barber.id}>
+                  {barber.name}
+                </option>
+              ))}
+            </select>
+          </Field>
         )}
 
-        <input
-          required
-          type="date"
-          value={form.start_date}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              start_date: e.target.value,
-            })
-          }
-          className="border-b border-black/25 bg-transparent py-3"
-        />
+        <Field label="Desde">
+          <input
+            required
+            type="date"
+            aria-label="Fecha de inicio"
+            placeholder="Fecha de inicio"
+            value={form.start_date}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                start_date: e.target.value,
+              })
+            }
+            className={fieldInputClass}
+          />
+        </Field>
 
-        <input
-          required
-          type="date"
-          value={form.end_date}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              end_date: e.target.value,
-            })
-          }
-          className="border-b border-black/25 bg-transparent py-3"
-        />
+        <Field label="Hasta">
+          <input
+            required
+            type="date"
+            aria-label="Fecha de fin"
+            placeholder="Fecha de fin"
+            value={form.end_date}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                end_date: e.target.value,
+              })
+            }
+            className={fieldInputClass}
+          />
+        </Field>
 
-        <input
-          placeholder="Motivo (opcional)"
-          value={form.reason}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              reason: e.target.value,
-            })
-          }
-          className="border-b border-black/25 bg-transparent py-3"
-        />
+        <Field label="Motivo">
+          <input
+            aria-label="Motivo"
+            placeholder="Vacaciones, festivo…"
+            value={form.reason}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                reason: e.target.value,
+              })
+            }
+            className={fieldInputClass}
+          />
+        </Field>
 
         <button
           type="submit"
-          className="bg-ink px-5 py-3 text-xs uppercase text-paper"
+          className="self-end bg-ink px-5 py-3 text-xs uppercase text-paper"
         >
           Crear
         </button>

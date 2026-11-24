@@ -1,4 +1,4 @@
-import { ArrowUpRight, Clock, MapPin, Scissors } from "lucide-react";
+import { ArrowUpRight, MapPin, Scissors } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ServiceList } from "../components/ServiceList";
 import type { Barber, Service } from "../types/api";
@@ -7,7 +7,6 @@ import galleryImg from "../assets/img1.jpeg";
 
 const QUICK_LINKS = [
   { to: "/servicios", label: "Servicios", hint: "Catálogo y precios", icon: Scissors },
-  { to: "/barberos", label: "Barberos", hint: "Conoce al equipo", icon: Clock },
   { to: "/contacto", label: "Contacto", hint: "Horarios y ubicación", icon: MapPin },
 ];
 
@@ -23,53 +22,53 @@ export function HomePage({
   return (
     <main className="min-h-screen bg-ink text-paper">
       {/* Hero */}
-      <section className="relative flex min-h-[100svh] items-end overflow-hidden px-5 pb-24 pt-24 sm:px-6 sm:pb-[28vh] sm:pt-28 lg:px-10 lg:pb-[38vh]">
+      <section className="relative flex min-h-[100svh] items-center justify-center overflow-hidden px-6 py-28 sm:px-8 lg:px-12">
         <div className="absolute inset-0 z-0">
           <img
             src={fondo}
             alt="Fachada Ronal Barber"
-            className="h-full w-full scale-105 object-cover object-center sm:object-[70%_center] lg:translate-x-[12%] lg:object-right"
+            className="h-full w-full scale-105 object-cover object-center brightness-[0.45] contrast-[1.08] saturate-[0.85] lg:translate-x-[18%] lg:scale-105 lg:object-right lg:brightness-[0.55]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/75 to-ink/35 sm:bg-gradient-to-r sm:from-ink sm:via-ink/90 sm:via-40% sm:to-ink/25" />
+          <div className="absolute inset-0 bg-gradient-to-b from-ink/70 via-ink/55 to-ink sm:hidden" />
+          <div className="absolute inset-0 hidden bg-gradient-to-r from-ink via-ink/80 via-50% to-ink/50 sm:block" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,rgba(17,17,17,0.15)_0%,rgba(17,17,17,0.55)_48%,rgba(17,17,17,0.88)_100%)]" />
         </div>
 
-        <div className="relative z-10 mx-auto w-full max-w-7xl lg:max-w-4xl">
-          <div className="max-w-3xl">
-            <p className="mb-5 text-[10px] uppercase tracking-[0.28em] text-accent sm:mb-6 sm:tracking-[0.32em]">
-              Barbería masculina · Lleida
-              <span className={`ml-2 sm:ml-3 ${apiOnline ? "text-green-400/80" : "text-white/25"}`}>
-                · {apiOnline ? "Reservas online" : "Sin conexión"}
-              </span>
-            </p>
-            <h1 className="max-w-3xl font-display text-[clamp(2.6rem,12vw,8rem)] uppercase leading-[0.88] tracking-tight">
-              Tu estilo.
-              <br />
-              <span className="text-white/40">Tu identidad.</span>
-            </h1>
-            <p className="mt-6 max-w-md text-sm leading-7 text-white/70 sm:mt-8 sm:text-base sm:leading-8 lg:text-lg">
-              Una experiencia de precisión, carácter y calma. Reserva tu cita en segundos y déjate cuidar por profesionales.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:gap-4">
-              <Link
-                to="/reservar"
-                className="inline-flex items-center justify-center gap-3 bg-accent px-7 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-ink transition-opacity hover:opacity-90"
-              >
-                Reservar cita <ArrowUpRight size={16} />
-              </Link>
-              <Link
-                to="/servicios"
-                className="inline-flex items-center justify-center gap-3 border border-white/25 px-7 py-4 text-xs uppercase tracking-[0.16em] transition-colors hover:border-accent hover:text-accent"
-              >
-                Ver servicios
-              </Link>
-            </div>
+        <div className="relative z-10 mx-auto w-full max-w-3xl text-center">
+          <p className="hero-reveal hero-reveal-delay-1 mb-5 text-[10px] uppercase tracking-[0.3em] text-accent sm:mb-6 sm:tracking-[0.34em]">
+            Barbería masculina · Lleida
+            <span className={`ml-2 sm:ml-3 ${apiOnline ? "text-white/40" : "text-white/20"}`}>
+              · {apiOnline ? "Reservas online" : "Sin conexión"}
+            </span>
+          </p>
+          <h1 className="hero-reveal hero-reveal-delay-2 font-display text-[clamp(2.75rem,9vw,5.75rem)] uppercase leading-[0.92] tracking-tight text-paper drop-shadow-[0_2px_24px_rgba(0,0,0,0.55)]">
+            Tu estilo.
+            <br />
+            Tu identidad.
+          </h1>
+          <p className="hero-reveal hero-reveal-delay-3 mx-auto mt-6 text-sm leading-7 text-white/75 sm:mt-7 sm:text-base sm:leading-8">
+            Más que una barbería, somos tu punto de confianza
+          </p>
+          <div className="hero-reveal hero-reveal-delay-4 mt-9 flex flex-col items-center justify-center gap-3 sm:mt-10 sm:flex-row sm:gap-4">
+            <Link
+              to="/reservar"
+              className="inline-flex items-center justify-center gap-3 bg-accent px-7 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-ink transition-opacity hover:opacity-90"
+            >
+              Reservar cita <ArrowUpRight size={16} />
+            </Link>
+            <Link
+              to="/servicios"
+              className="inline-flex items-center justify-center gap-3 border border-white/30 px-7 py-4 text-xs uppercase tracking-[0.16em] text-white/90 transition-colors hover:border-accent hover:text-accent"
+            >
+              Ver servicios
+            </Link>
           </div>
         </div>
       </section>
 
       {/* Quick links */}
       <section className="border-y border-white/10 bg-ink">
-        <div className="mx-auto grid max-w-7xl md:grid-cols-3">
+        <div className="mx-auto grid max-w-7xl md:grid-cols-2">
           {QUICK_LINKS.map(({ to, label, hint, icon: Icon }) => (
             <Link
               key={to}
@@ -97,7 +96,7 @@ export function HomePage({
             Más que un corte.
           </h2>
           <p className="mt-8 max-w-xl text-lg leading-8 text-white/55">
-            Creemos que un buen corte no solo cambia tu imagen. También cambia cómo te sientes. Atención cuidada, espacio con carácter y un resultado que habla por ti.
+            Un buen corte no solo cambia cómo te ves. También cómo te sientes. Atención sin prisas y un acabado que se nota.
           </p>
         </div>
       </section>
@@ -106,28 +105,22 @@ export function HomePage({
       {barbers.length > 0 && (
         <section className="border-t border-white/10 px-6 py-24 lg:px-10 lg:py-28">
           <div className="mx-auto max-w-7xl">
-            <div className="flex flex-wrap items-end justify-between gap-6">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.28em] text-accent">02 / El equipo</p>
-                <h2 className="mt-4 font-display text-5xl uppercase leading-none sm:text-6xl">Profesionales.</h2>
-              </div>
-              <Link to="/barberos" className="text-xs uppercase tracking-[0.16em] text-white/50 hover:text-accent">
-                Ver todos →
-              </Link>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.28em] text-accent">02 / El equipo</p>
+              <h2 className="mt-4 font-display text-5xl uppercase leading-none sm:text-6xl">Profesionales.</h2>
             </div>
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {barbers.slice(0, 3).map((barber) => (
-                <Link
+                <article
                   key={barber.id}
-                  to={`/barberos/${barber.id}`}
-                  className="group overflow-hidden border border-white/10 bg-white/[0.02] transition-colors hover:border-accent/40"
+                  className="overflow-hidden border border-white/10 bg-white/[0.02]"
                 >
                   <div className="aspect-[5/4] overflow-hidden bg-white/5">
                     {barber.image_url ? (
                       <img
                         src={barber.image_url}
                         alt={barber.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center font-display text-5xl uppercase text-white/10">
@@ -139,7 +132,7 @@ export function HomePage({
                     <h3 className="font-display text-2xl uppercase">{barber.name}</h3>
                     <p className="mt-2 text-xs uppercase tracking-[0.14em] text-accent">{barber.specialties}</p>
                   </div>
-                </Link>
+                </article>
               ))}
             </div>
           </div>
@@ -170,7 +163,7 @@ export function HomePage({
           <h2 className="mt-5 font-display text-5xl uppercase leading-none sm:text-6xl">
             ¿Listo para tu próximo corte?
           </h2>
-          <p className="mx-auto mt-6 max-w-md text-white/55">
+          <p className="mx-auto mt-6 text-white/55">
             Elige servicio, barbero y hora. Confirmación instantánea por email.
           </p>
           <Link

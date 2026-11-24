@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
 import type { Barber, Service } from "../types/api";
-import { defaultServiceId } from "../utils/services";
+import { complementOptions, defaultServiceId, independentServices } from "../utils/services";
 
 const STEPS = [
   { id: 1, label: "Servicio", icon: Scissors },
@@ -40,6 +40,7 @@ export function BookingPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [step, setStep] = useState(1);
   const [serviceId, setServiceId] = useState(searchParams.get("service") ?? "");
+  const [complementIds, setComplementIds] = useState<number[]>([]);
   const [barberId, setBarberId] = useState(searchParams.get("barber") ?? "");
   const [date, setDate] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
@@ -53,6 +54,23 @@ export function BookingPage() {
     () => services.find((s) => String(s.id) === serviceId),
     [services, serviceId],
   );
+  const extras = useMemo(() => complementOptions(services, serviceId), [services, serviceId]);
+  const selectedComplements = useMemo(
+    () => extras.filter((item) => complementIds.includes(item.id)),
+    [extras, complementIds],
+  );
+  const totalDuration = useMemo(
+    () =>
+      (selectedService?.duration_minutes ?? 0) +
+      selectedComplements.reduce((sum, item) => sum + item.duration_minutes, 0),
+    [selectedService, selectedComplements],
+  );
+  const totalPrice = useMemo(
+    () =>
+      Number(selectedService?.price ?? 0) +
+      selectedComplements.reduce((sum, item) => sum + Number(item.price), 0),
+    [selectedService, selectedComplements],
+  );
   const selectedBarber = useMemo(
     () => barbers.find((b) => String(b.id) === barberId),
     [barbers, barberId],
@@ -63,7 +81,12 @@ export function BookingPage() {
       .then(([loadedServices, loadedBarbers]) => {
         setServices(loadedServices);
         setBarbers(loadedBarbers);
-        setServiceId((current) => current || defaultServiceId(loadedServices));
+        setServiceId((current) => {
+          const next = current || defaultServiceId(loadedServices);
+          const found = loadedServices.find((item) => String(item.id) === next);
+          if (found && found.is_independent === false) return defaultServiceId(loadedServices);
+          return next;
+        });
       })
       .catch(() => setMessage("No hemos podido cargar la disponibilidad."));
   }, []);
@@ -92,11 +115,11 @@ export function BookingPage() {
     setLoadingSlots(true);
     setSlot("");
     api
-      .getAvailability(Number(serviceId), date, barberId ? Number(barberId) : undefined)
+      .getAvailability(Number(serviceId), date, barberId ? Number(barberId) : undefined, complementIds)
       .then(({ slots: loadedSlots }) => setSlots(loadedSlots))
       .catch(() => setMessage("No hemos podido cargar las horas disponibles."))
       .finally(() => setLoadingSlots(false));
-  }, [serviceId, barberId, date]);
+  }, [serviceId, barberId, date, complementIds]);
 
   function canAdvance(): boolean {
     if (step === 1) return Boolean(serviceId);
@@ -112,6 +135,7 @@ export function BookingPage() {
     try {
       await api.createAppointment({
         service_id: Number(serviceId),
+        complement_ids: complementIds,
         barber_id: barberId ? Number(barberId) : null,
         date,
         start_time: slot,
@@ -220,13 +244,17 @@ export function BookingPage() {
                 <p className="mt-2 text-sm text-black/50">Selecciona el tratamiento que necesitas.</p>
               </div>
               <div className="grid gap-3">
-                {services.map((item) => {
+                {independentServices(services).map((item) => {
                   const selected = serviceId === String(item.id);
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => setServiceId(String(item.id))}
+                      onClick={() => {
+                        setServiceId(String(item.id));
+                        setComplementIds([]);
+                        setSlot("");
+                      }}
                       className={`flex items-center justify-between gap-4 border p-5 text-left transition-all ${
                         selected
                           ? "border-ink bg-ink text-paper shadow-md"
@@ -244,6 +272,45 @@ export function BookingPage() {
                   );
                 })}
               </div>
+
+              {extras.length > 0 && serviceId && (
+                <div>
+                  <h3 className="text-[10px] uppercase tracking-[0.18em] text-black/45">Extras</h3>
+                  <div className="mt-3 grid gap-2">
+                    {extras.map((item) => {
+                      const checked = complementIds.includes(item.id);
+                      return (
+                        <label
+                          key={item.id}
+                          className={`flex cursor-pointer items-center justify-between gap-4 border px-4 py-3 text-sm ${
+                            checked ? "border-ink bg-ink/5" : "border-black/10 bg-white"
+                          }`}
+                        >
+                          <span>
+                            <input
+                              type="checkbox"
+                              className="mr-3"
+                              checked={checked}
+                              onChange={() => {
+                                setComplementIds((current) =>
+                                  current.includes(item.id)
+                                    ? current.filter((id) => id !== item.id)
+                                    : [...current, item.id],
+                                );
+                                setSlot("");
+                              }}
+                            />
+                            + {item.name}
+                          </span>
+                          <span className="text-black/50">
+                            {item.duration_minutes} min · {item.price} €
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <h3 className="text-[10px] uppercase tracking-[0.18em] text-black/45">Barbero (opcional)</h3>
@@ -367,19 +434,19 @@ export function BookingPage() {
               <div className="grid gap-5 sm:grid-cols-2">
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-[0.14em] text-black/45">Nombre</span>
-                  <input required name="name" className="mt-2 w-full border-b border-black/20 bg-transparent py-3 outline-none focus:border-ink" />
+                  <input required name="name" aria-label="Nombre" placeholder="Tu nombre" className="mt-2 w-full border-b border-black/20 bg-transparent py-3 outline-none placeholder:text-black/35 focus:border-ink" />
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-[0.14em] text-black/45">Apellidos</span>
-                  <input required name="surname" className="mt-2 w-full border-b border-black/20 bg-transparent py-3 outline-none focus:border-ink" />
+                  <input required name="surname" aria-label="Apellidos" placeholder="Tus apellidos" className="mt-2 w-full border-b border-black/20 bg-transparent py-3 outline-none placeholder:text-black/35 focus:border-ink" />
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-[0.14em] text-black/45">Teléfono</span>
-                  <input required name="phone" type="tel" className="mt-2 w-full border-b border-black/20 bg-transparent py-3 outline-none focus:border-ink" />
+                  <input required name="phone" type="tel" aria-label="Teléfono" placeholder="600 000 000" className="mt-2 w-full border-b border-black/20 bg-transparent py-3 outline-none placeholder:text-black/35 focus:border-ink" />
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-[0.14em] text-black/45">Email</span>
-                  <input required name="email" type="email" className="mt-2 w-full border-b border-black/20 bg-transparent py-3 outline-none focus:border-ink" />
+                  <input required name="email" type="email" aria-label="Email" placeholder="tu@email.com" className="mt-2 w-full border-b border-black/20 bg-transparent py-3 outline-none placeholder:text-black/35 focus:border-ink" />
                 </label>
               </div>
 
@@ -454,11 +521,13 @@ export function BookingPage() {
               <div>
                 <p className="text-[10px] uppercase tracking-[0.14em] text-black/35">Servicio</p>
                 <p className="mt-1 font-display text-xl uppercase">
-                  {selectedService?.name ?? "—"}
+                  {selectedService
+                    ? [selectedService.name, ...selectedComplements.map((item) => item.name)].join(" + ")
+                    : "—"}
                 </p>
                 {selectedService && (
                   <p className="mt-1 text-sm text-black/45">
-                    {selectedService.duration_minutes} min · {selectedService.price} €
+                    {totalDuration} min · {totalPrice.toFixed(2)} €
                   </p>
                 )}
               </div>
@@ -480,7 +549,7 @@ export function BookingPage() {
                 <div className="border-t border-black/10 pt-5">
                   <div className="flex items-end justify-between">
                     <p className="text-[10px] uppercase tracking-[0.14em] text-black/35">Total estimado</p>
-                    <p className="font-display text-3xl text-accent">{selectedService.price} €</p>
+                    <p className="font-display text-3xl text-accent">{totalPrice.toFixed(2)} €</p>
                   </div>
                   <p className="mt-3 text-xs leading-5 text-black/45">
                     Se abonará en efectivo o tarjeta en el local.

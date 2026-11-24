@@ -11,6 +11,7 @@ from app.crons.common import CronSpec, next_day_for_reminders
 from app.db.session import SessionLocal
 from app.models.models import Appointment, AppointmentStatus, Barber, Service
 from app.services import email as email_service
+from app.services.booking import named_service_for_appointment
 from app.services.settings_store import get_runtime_settings
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,8 @@ async def run() -> str:
                 skipped += 1
                 continue
 
-            sent = await email_service.send_reminder_24h(appointment, service, barber)
+            labeled = await named_service_for_appointment(db, appointment, service)
+            sent = await email_service.send_reminder_24h(appointment, labeled, barber)
             if not sent:
                 if not settings.email_enabled:
                     skipped += 1

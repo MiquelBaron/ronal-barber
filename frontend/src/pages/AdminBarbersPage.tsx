@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 
+import { Field, fieldInputClass } from "../components/Field";
 import { StaffPageHeader } from "../components/StaffPageHeader";
 import { useStaff } from "../contexts/StaffContext";
 import { api } from "../services/api";
@@ -161,25 +162,34 @@ export function AdminBarbersPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <input
-              required
-              placeholder="Nombre"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="border-b border-black/25 bg-transparent py-3"
-            />
-            <input
-              placeholder="Especialidades"
-              value={form.specialties}
-              onChange={(e) => setForm({ ...form, specialties: e.target.value })}
-              className="border-b border-black/25 bg-transparent py-3"
-            />
-            <input
-              placeholder="Descripción"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="border-b border-black/25 bg-transparent py-3 md:col-span-2"
-            />
+            <Field label="Nombre">
+              <input
+                required
+                aria-label="Nombre del barbero"
+                placeholder="Nombre del barbero"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={fieldInputClass}
+              />
+            </Field>
+            <Field label="Especialidades">
+              <input
+                aria-label="Especialidades"
+                placeholder="Fade, barba…"
+                value={form.specialties}
+                onChange={(e) => setForm({ ...form, specialties: e.target.value })}
+                className={fieldInputClass}
+              />
+            </Field>
+            <Field label="Descripción" className="md:col-span-2">
+              <input
+                aria-label="Descripción"
+                placeholder="Breve presentación"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                className={fieldInputClass}
+              />
+            </Field>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
               Activo
