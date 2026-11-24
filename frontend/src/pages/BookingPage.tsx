@@ -1,7 +1,8 @@
 import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, Clock, Scissors, User } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { TurnstileField, type TurnstileFieldHandle } from "../components/TurnstileField";
 import { api } from "../services/api";
 import type { Barber, Service } from "../types/api";
 import { complementOptions, defaultServiceId, independentServices } from "../utils/services";
@@ -49,6 +50,8 @@ export function BookingPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileFieldHandle>(null);
 
   const selectedService = useMemo(
     () => services.find((s) => String(s.id) === serviceId),
@@ -127,8 +130,14 @@ export function BookingPage() {
     return false;
   }
 
+  const turnstileConfigured = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (turnstileConfigured && !turnstileToken) {
+      setMessage("Completa la verificación anti-bot antes de confirmar.");
+      return;
+    }
     setSubmitting(true);
     setMessage("");
     const form = new FormData(event.currentTarget);
@@ -144,13 +153,18 @@ export function BookingPage() {
         customer_phone: form.get("phone"),
         customer_email: form.get("email"),
         privacy_accepted: form.get("privacy") === "on",
+        turnstile_token: turnstileToken ?? "",
       });
       setConfirmed(true);
     } catch (error) {
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
       setMessage(
         error instanceof Error && error.message.includes("409")
           ? "Esta hora acaba de ser reservada. Por favor selecciona otra."
-          : "No hemos podido completar la reserva.",
+          : error instanceof Error && error.message.includes("403")
+            ? "La verificación anti-bot ha fallado. Inténtalo de nuevo."
+            : "No hemos podido completar la reserva.",
       );
     } finally {
       setSubmitting(false);
@@ -462,13 +476,15 @@ export function BookingPage() {
                 Acepto la política de privacidad y el tratamiento de mis datos para gestionar la cita.
               </label>
 
+              <TurnstileField ref={turnstileRef} onTokenChange={setTurnstileToken} />
+
               {message && (
                 <div className="border border-red-700/20 bg-red-700/5 px-4 py-3 text-sm text-red-700">{message}</div>
               )}
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (turnstileConfigured && !turnstileToken)}
                 className="flex w-full items-center justify-center gap-2 bg-ink py-4 text-xs uppercase tracking-[0.14em] text-paper disabled:opacity-50"
               >
                 {submitting ? "Procesando…" : "Confirmar reserva"}

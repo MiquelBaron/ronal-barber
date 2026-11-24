@@ -44,6 +44,8 @@ services:
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
       REMINDER_SEND_HOUR: ${REMINDER_SEND_HOUR:-21}
       REMINDER_TIMEZONE: ${REMINDER_TIMEZONE:-Europe/Madrid}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?Set TURNSTILE_SECRET_KEY}
+      TURNSTILE_EXPECTED_HOSTNAMES: ${TURNSTILE_EXPECTED_HOSTNAMES:-ronalbarber504.com,www.ronalbarber504.com}
     expose:
       - "8000"
     volumes:
@@ -58,6 +60,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+      args:
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:?Set VITE_TURNSTILE_SITE_KEY}
     container_name: ronal-barber-frontend-prod
     restart: unless-stopped
     # Host Nginx owns :80/:443. Bind only on loopback so the container

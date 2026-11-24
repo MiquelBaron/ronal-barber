@@ -50,6 +50,8 @@ class AppointmentIn(BaseModel):
     customer_email: EmailStr
     privacy_accepted: bool = True
     complement_ids: list[int] = Field(default_factory=list)
+    # Required when TURNSTILE_SECRET_KEY is set; empty allowed in local/dev without captcha.
+    turnstile_token: str = ""
 
     @field_validator("privacy_accepted")
     @classmethod

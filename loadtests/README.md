@@ -1,28 +1,34 @@
 # Load tests (k6)
 
-Pruebas de carga para la API de Ronal Barber antes de producción.
+Pruebas de carga contra la API de Ronal Barber.
+
+**Target por defecto:** `https://ronalbarber504.com`
 
 ## Requisitos
 
 - [k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) instalado localmente **o** Docker
-- API en marcha con datos seed (servicios, barberos, horarios)
+- Credenciales staff válidas en el entorno (smoke/load con auth)
+- Servicios, barberos y horarios configurados en el target
 
 ## Variables de entorno
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `API_BASE_URL` | `http://localhost:8000` | URL base del backend |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | credenciales dev | Login admin en smoke test |
-| `BARBER_EMAIL` / `BARBER_PASSWORD` | credenciales dev | Login barbero en load test |
+| `API_BASE_URL` | `https://ronalbarber504.com` | URL base del sitio/API (sin barra final) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | _(ver `.env.example`)_ | Login admin en smoke test |
+| `BARBER_EMAIL` / `BARBER_PASSWORD` | _(ver `.env.example`)_ | Login barbero en load test |
 | `SERVICE_ID` / `BARBER_ID` | `1` / `1` | IDs usados en availability/booking |
 | `BOOKING_DAYS_AHEAD` | `14` | Días mínimos hacia adelante para buscar slot libre |
 | `BOOKING_DATE` / `BOOKING_TIME` | _(auto)_ | Forzar fecha/hora concreta |
 | `CONCURRENT_VUS` | `50` | VUs en test de concurrencia |
+| `TURNSTILE_TOKEN` | `loadtest` | Token enviado en `POST /api/appointments` (solo válido con claves de prueba always-pass de Cloudflare) |
 
-Copia `.env.example` y exporta las variables antes de ejecutar, o pásalas con `-e`:
+Copia `.env.example`, rellena credenciales reales y exporta las variables, o pásalas con `-e`:
 
 ```powershell
-$env:API_BASE_URL = "http://localhost:8000"
+$env:API_BASE_URL = "https://ronalbarber504.com"
+$env:ADMIN_EMAIL = "tu-admin@ronalbarber504.com"
+$env:ADMIN_PASSWORD = "..."
 k6 run loadtests/smoke.js
 ```
 
@@ -55,29 +61,27 @@ $env:CONCURRENT_VUS = "50"
 k6 run loadtests/booking-concurrency.js
 ```
 
-> El test crea una cita real en la base de datos. Ejecútalo contra dev/staging, no producción.
+> `smoke.js` y `booking-concurrency.js` **crean citas reales** en la base de datos del target. En producción conviene cancelarlas después o usar un slot lejano (`BOOKING_DAYS_AHEAD`).
 >
-> En dev con un solo worker Uvicorn, valores muy altos de `CONCURRENT_VUS` pueden provocar `connection refused` transitorios. Empieza con 10–20 VUs y sube en staging.
+> Empieza con `CONCURRENT_VUS` bajo (10–20) y sube si el entorno aguanta.
+>
+> **Turnstile:** k6 no puede resolver el widget. Para smoke/concurrency de escritura, usa temporalmente las [claves de prueba always-pass](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) en el servidor (`TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`) o el POST de reserva devolverá **403**. `load.js` (solo lecturas + auth) no se ve afectado.
 
 ## Ejecución con Docker
 
 ```powershell
 docker run --rm -i `
   -v "${PWD}/loadtests:/loadtests" `
-  -e API_BASE_URL=http://host.docker.internal:8000 `
+  -e API_BASE_URL=https://ronalbarber504.com `
+  -e ADMIN_EMAIL=tu-admin@ronalbarber504.com `
+  -e ADMIN_PASSWORD=... `
   grafana/k6 run /loadtests/smoke.js
 ```
 
-En Linux/macOS sustituye `host.docker.internal` por la IP del host si hace falta.
-
-## Staging
-
-Apunta `API_BASE_URL` al backend de staging (sin barra final):
+## Local / otro entorno
 
 ```powershell
-$env:API_BASE_URL = "https://staging.tudominio.com"
-$env:ADMIN_EMAIL = "tu-admin@staging.com"
-$env:ADMIN_PASSWORD = "..."
+$env:API_BASE_URL = "http://localhost:8000"
 k6 run loadtests/smoke.js
 ```
 

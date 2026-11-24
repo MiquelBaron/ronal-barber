@@ -1,7 +1,7 @@
 /** Shared k6 configuration from environment variables. */
 export function getConfig() {
   return {
-    baseUrl: (__ENV.API_BASE_URL || 'http://localhost:8000').replace(/\/$/, ''),
+    baseUrl: (__ENV.API_BASE_URL || 'https://ronalbarber504.com').replace(/\/$/, ''),
     adminEmail: __ENV.ADMIN_EMAIL || 'admin@ronalbarber.com',
     adminPassword: __ENV.ADMIN_PASSWORD || 'admin',
     barberEmail: __ENV.BARBER_EMAIL || 'barber1@ronalbarber.com',

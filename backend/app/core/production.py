@@ -64,6 +64,9 @@ def validate_production_settings(settings: "Settings") -> None:
     validate_jwt_secret(settings.jwt_secret)
     validate_database_url(settings.database_url)
 
+    if not settings.turnstile_secret_key.strip():
+        raise ValueError("TURNSTILE_SECRET_KEY is required in production.")
+
 
 def fail_startup(message: str) -> None:
     print(f"[production] Startup blocked: {message}", file=sys.stderr)

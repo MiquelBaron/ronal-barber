@@ -144,7 +144,7 @@ npm run build
 Pruebas de carga antes de producción: smoke, ramp-up progresivo y concurrencia de reservas. Ver [loadtests/README.md](loadtests/README.md).
 
 ```powershell
-docker run --rm -i -v "${PWD}/loadtests:/loadtests" -e API_BASE_URL=http://host.docker.internal:8000 grafana/k6 run /loadtests/smoke.js
+docker run --rm -i -v "${PWD}/loadtests:/loadtests" -e API_BASE_URL=https://ronalbarber504.com grafana/k6 run /loadtests/smoke.js
 ```
 
 ## Migraciones Alembic

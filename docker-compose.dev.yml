@@ -45,6 +45,8 @@ services:
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
       REMINDER_SEND_HOUR: ${REMINDER_SEND_HOUR:-21}
       REMINDER_TIMEZONE: ${REMINDER_TIMEZONE:-Europe/Madrid}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      TURNSTILE_EXPECTED_HOSTNAMES: ${TURNSTILE_EXPECTED_HOSTNAMES:-ronalbarber504.com,www.ronalbarber504.com}
     ports:
       - "0.0.0.0:8000:8000"
     volumes:
@@ -69,6 +71,7 @@ services:
       - "0.0.0.0:5173:5173"
     environment:
       VITE_API_PROXY_TARGET: http://backend:8000
+      VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
     command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
     volumes:
       - ./frontend:/app

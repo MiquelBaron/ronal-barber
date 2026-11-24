@@ -13,6 +13,8 @@ export function buildAppointmentPayload({ serviceId, barberId, date, startTime, 
     customer_phone: '600123456',
     customer_email: `load-${token}@example.com`,
     privacy_accepted: true,
+    // With Cloudflare always-pass test secret, any string verifies. Real keys need a widget token.
+    turnstile_token: __ENV.TURNSTILE_TOKEN || 'loadtest',
   };
 }
 

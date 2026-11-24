@@ -38,6 +38,7 @@ export type AppointmentPayload = {
   customer_email: FormDataEntryValue | null;
   privacy_accepted: boolean;
   complement_ids?: number[];
+  turnstile_token?: string;
 };
 
 export type ManualAppointmentPayload = {

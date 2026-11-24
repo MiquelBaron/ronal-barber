@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     reminder_send_hour: int = 21
     reminder_timezone: str = "Europe/Madrid"
 
+    turnstile_secret_key: str = ""
+    turnstile_expected_hostnames: str = "ronalbarber504.com,www.ronalbarber504.com"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property

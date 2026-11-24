@@ -20,8 +20,19 @@ def test_production_accepts_strong_settings() -> None:
         environment="production",
         jwt_secret="abcdefghijklmnopqrstuvwxyz0123456789ABCD",
         database_url="postgresql+asyncpg://barber:strong-pass@postgres:5432/barbershop",
+        turnstile_secret_key="turnstile-secret-for-production-tests",
     )
     validate_production_settings(settings)
+
+
+def test_production_requires_turnstile_secret() -> None:
+    with pytest.raises(ValidationError, match="TURNSTILE_SECRET_KEY"):
+        Settings(
+            environment="production",
+            jwt_secret="abcdefghijklmnopqrstuvwxyz0123456789ABCD",
+            database_url="postgresql+asyncpg://barber:strong-pass@postgres:5432/barbershop",
+            turnstile_secret_key="",
+        )
 
 
 def test_production_rejects_short_jwt() -> None:

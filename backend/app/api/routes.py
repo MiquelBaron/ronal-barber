@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import email as email_service
 from app.services import profiling as profiling_service
+from app.services import turnstile as turnstile_service
 from app.services.settings_store import GROUP_LABELS, get_settings_for_admin, get_runtime_settings, update_settings
 from app.core.security import (
     create_access_token,
@@ -500,7 +501,17 @@ async def admin_availability(
 
 
 @router.post("/appointments", response_model=AppointmentOut, status_code=status.HTTP_201_CREATED)
-async def create_appointment(payload: AppointmentIn, db: AsyncSession = Depends(get_db)) -> Appointment:
+async def create_appointment(
+    request: Request,
+    payload: AppointmentIn,
+    db: AsyncSession = Depends(get_db),
+) -> Appointment:
+    remote_ip = turnstile_service.resolve_remote_ip(
+        request.client.host if request.client else None,
+        request.headers.get("x-forwarded-for"),
+    )
+    await turnstile_service.verify_turnstile_token(payload.turnstile_token, remote_ip=remote_ip)
+
     appointment, service, barber = await booking_service.create_appointment(
         db,
         service_id=payload.service_id,
