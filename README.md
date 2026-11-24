@@ -52,9 +52,26 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 Servicios:
 
-- Frontend (Nginx): http://localhost (puerto `HTTP_PORT`, default 80)
-- Backend: solo red interna Docker (proxy vía Nginx en `/api` y `/uploads`)
+- Frontend (Nginx en contenedor): solo en el host en `127.0.0.1:${HTTP_PORT:-8080}` (default **8080**). El puerto 80/443 del servidor lo gestiona **Nginx de Ubuntu**, que debe hacer proxy a `http://127.0.0.1:8080`.
+- Backend: solo red interna Docker (proxy vía Nginx del contenedor en `/api` y `/uploads`)
 - PostgreSQL: **no** expuesto al host
+
+Ejemplo mínimo de site en el Nginx del host (`/etc/nginx/sites-available/ronal-barber`):
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
 
 **Primer arranque en production**
 
