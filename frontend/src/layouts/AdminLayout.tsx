@@ -36,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/barbers", label: "Barberos", icon: Users, managerOnly: true },
   { href: "/admin/hours", label: "Horarios", icon: Clock },
   { href: "/admin/days-off", label: "Días libres", icon: CalendarDays },
-  { href: "/admin/users", label: "Usuarios", icon: UserSquare2, adminOnly: true },
+  { href: "/admin/users", label: "Usuarios", icon: UserSquare2, managerOnly: true },
   { href: "/admin/crons", label: "Crons", icon: Timer, adminOnly: true },
   { href: "/admin/profiling", label: "Profiling", icon: Activity, adminOnly: true },
   { href: "/admin/profile", label: "Configuración", icon: Settings, barberOnly: true },

@@ -110,7 +110,7 @@ export function HomePage({
               <h2 className="mt-4 font-display text-5xl uppercase leading-none sm:text-6xl">Profesionales.</h2>
             </div>
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {barbers.slice(0, 3).map((barber) => (
+              {barbers.slice(0, 7).map((barber) => (
                 <article
                   key={barber.id}
                   className="overflow-hidden border border-white/10 bg-white/[0.02]"

@@ -191,11 +191,11 @@ export function AdminPage() {
 }
 
 function AdminUsersSection() {
-  const { isAdmin, user: currentUser } = useStaff();
+  const { isAdmin, isAdminBarber, user: currentUser } = useStaff();
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [role, setRole] = useState("admin");
+  const [role, setRole] = useState(isAdmin ? "admin" : "barber");
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editRole, setEditRole] = useState("admin");
@@ -203,21 +203,24 @@ function AdminUsersSection() {
   const [editPassword, setEditPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const needsBarber = BARBER_ROLES.has(role);
+  const canManageUsers = isAdmin || isAdminBarber;
+  const lockedToBarber = isAdminBarber && !isAdmin;
+  const effectiveRole = lockedToBarber ? "barber" : role;
+  const needsBarber = BARBER_ROLES.has(effectiveRole);
   const editNeedsBarber = BARBER_ROLES.has(editRole);
   const barberNameById = Object.fromEntries(barbers.map((barber) => [barber.id, barber.name]));
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canManageUsers) return;
     Promise.all([api.getUsers(), api.getBarbers(true)])
       .then(([loadedUsers, loadedBarbers]) => {
         setUsers(loadedUsers);
         setBarbers(loadedBarbers);
       })
       .catch(() => navigate("/admin/login"));
-  }, [isAdmin, navigate]);
+  }, [canManageUsers, navigate]);
 
-  if (!isAdmin) return <Navigate to={staffHomePath(currentUser.role)} replace />;
+  if (!canManageUsers) return <Navigate to={staffHomePath(currentUser.role)} replace />;
 
   function startEdit(item: User) {
     setEditingId(item.id);
@@ -267,7 +270,7 @@ function AdminUsersSection() {
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const selectedRole = String(form.get("role"));
+    const selectedRole = lockedToBarber ? "barber" : String(form.get("role"));
     const barberIdRaw = form.get("barber_id");
     const barberId = barberIdRaw ? Number(barberIdRaw) : null;
 
@@ -285,7 +288,7 @@ function AdminUsersSection() {
       });
       setUsers([...users, created]);
       event.currentTarget.reset();
-      setRole("admin");
+      setRole(lockedToBarber ? "barber" : "admin");
       setError("");
     } catch {
       setError("No se puede crear el usuario. Comprueba email, contraseña y barbero vinculado.");
@@ -294,7 +297,15 @@ function AdminUsersSection() {
 
   return (
     <section>
-      <StaffPageHeader eyebrow="Administración" title="Usuarios" description="Gestiona accesos de admin y barberos." />
+      <StaffPageHeader
+        eyebrow="Administración"
+        title="Usuarios"
+        description={
+          lockedToBarber
+            ? "Crea accesos de barbero vinculados a un perfil del equipo."
+            : "Gestiona accesos de admin y barberos."
+        }
+      />
       {error && <div className="mb-6 border border-red-700/15 bg-red-700/5 px-4 py-3 text-xs text-red-700">{error}</div>}
       <form
         onSubmit={add}
@@ -322,17 +333,29 @@ function AdminUsersSection() {
           />
         </Field>
         <Field label="Rol">
-          <select
-            name="role"
-            aria-label="Rol"
-            value={role}
-            onChange={(event) => setRole(event.target.value)}
-            className={fieldInputClass}
-          >
-            <option value="admin">Admin</option>
-            <option value="admin_barber">Barbero jefe</option>
-            <option value="barber">Barbero</option>
-          </select>
+          {lockedToBarber ? (
+            <>
+              <input type="hidden" name="role" value="barber" />
+              <input
+                readOnly
+                aria-label="Rol"
+                value="Barbero"
+                className={`${fieldInputClass} cursor-default bg-black/[0.03] text-black/70`}
+              />
+            </>
+          ) : (
+            <select
+              name="role"
+              aria-label="Rol"
+              value={role}
+              onChange={(event) => setRole(event.target.value)}
+              className={fieldInputClass}
+            >
+              <option value="admin">Admin</option>
+              <option value="admin_barber">Barbero jefe</option>
+              <option value="barber">Barbero</option>
+            </select>
+          )}
         </Field>
         {needsBarber ? (
           <Field label="Barbero">
@@ -369,7 +392,7 @@ function AdminUsersSection() {
       <div className="divide-y divide-black/10 rounded-sm border border-black/10 bg-white shadow-sm">
         {users.map((item) => (
           <div key={item.id} className="px-6 py-5">
-            {editingId === item.id ? (
+            {isAdmin && editingId === item.id ? (
               <div className="grid gap-4">
                 <div>
                   <p className="text-sm">{item.email}</p>
@@ -448,24 +471,26 @@ function AdminUsersSection() {
                     {item.barber_id ? ` · ${barberNameById[item.barber_id] ?? `Barbero #${item.barber_id}`}` : ""}
                   </p>
                 </div>
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => startEdit(item)}
-                    className="text-[10px] uppercase tracking-[0.15em] text-black/55 hover:text-accent"
-                  >
-                    Editar
-                  </button>
-                  {item.id !== currentUser.id && (
+                {isAdmin && (
+                  <div className="flex gap-4">
                     <button
                       type="button"
-                      onClick={() => remove(item.id)}
-                      className="text-[10px] uppercase tracking-[0.15em] text-red-700"
+                      onClick={() => startEdit(item)}
+                      className="text-[10px] uppercase tracking-[0.15em] text-black/55 hover:text-accent"
                     >
-                      Eliminar
+                      Editar
                     </button>
-                  )}
-                </div>
+                    {item.id !== currentUser.id && (
+                      <button
+                        type="button"
+                        onClick={() => remove(item.id)}
+                        className="text-[10px] uppercase tracking-[0.15em] text-red-700"
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -92,25 +92,41 @@ async def me(user: User = Depends(get_current_user)) -> User:
 
 
 @router.get("/admin/users", response_model=list[UserOut])
-async def get_users(_: User = Depends(require_admin), db: AsyncSession = Depends(get_db)) -> list[User]:
+async def get_users(_: User = Depends(require_shop_manager), db: AsyncSession = Depends(get_db)) -> list[User]:
     return list((await db.scalars(select(User).order_by(User.email))).all())
 
 
 @router.post("/admin/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def create_user(payload: UserIn, _: User = Depends(require_admin), db: AsyncSession = Depends(get_db)) -> User:
+async def create_user(
+    payload: UserIn,
+    current_user: User = Depends(require_shop_manager),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    role = payload.role
+    if current_user.role == "admin_barber":
+        if role != "barber":
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Barbero jefe solo puede crear usuarios con rol barbero",
+            )
+        role = "barber"
+
     if await db.scalar(select(User).where(User.email == payload.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "User already exists")
-    if payload.role in {"barber", "admin_barber"} and payload.barber_id is None:
+    if role in {"barber", "admin_barber"} and payload.barber_id is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Barber users require barber_id")
     if payload.barber_id is not None:
         barber = await db.get(Barber, payload.barber_id)
         if barber is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Barber not found")
+        taken = await db.scalar(select(User).where(User.barber_id == payload.barber_id))
+        if taken is not None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "That barber is already linked to another user")
     user = User(
         email=payload.email,
         password_hash=hash_password(payload.password),
-        role=payload.role,
-        barber_id=payload.barber_id,
+        role=role,
+        barber_id=payload.barber_id if role in {"barber", "admin_barber"} else None,
     )
     db.add(user)
     await db.commit()
